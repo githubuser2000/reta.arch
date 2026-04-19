@@ -1,0 +1,156 @@
+from __future__ import annotations
+
+import hashlib
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable, Mapping, Sequence
+
+
+IGNORED_DIR_NAMES = {"__pycache__", ".git", ".pytest_cache", ".mypy_cache"}
+IGNORED_SUFFIXES = {".pyc", ".pyo"}
+
+REQUIRED_SOURCE_PATHS = (
+    "reta.py",
+    "retaPrompt.py",
+    "reta_architecture/__init__.py",
+    "reta_architecture/facade.py",
+    "reta_architecture/topology.py",
+    "reta_architecture/presheaves.py",
+    "reta_architecture/sheaves.py",
+    "reta_architecture/morphisms.py",
+    "reta_architecture/universal.py",
+    "reta_architecture/schema.py",
+    "reta_architecture/semantics_builder.py",
+    "reta_architecture/input_semantics.py",
+    "reta_architecture/column_selection.py",
+    "reta_architecture/parameter_runtime.py",
+    "reta_architecture/program_workflow.py",
+    "reta_architecture/output_syntax.py",
+    "reta_architecture/output_semantics.py",
+    "reta_architecture/table_generation.py",
+    "reta_architecture/table_preparation.py",
+    "reta_architecture/row_filtering.py",
+    "reta_architecture/table_wrapping.py",
+    "reta_architecture/number_theory.py",
+    "reta_architecture/table_output.py",
+    "reta_architecture/table_runtime.py",
+    "reta_architecture/generated_columns.py",
+    "reta_architecture/meta_columns.py",
+    "reta_architecture/concat_csv.py",
+    "reta_architecture/combi_join.py",
+    "reta_architecture/prompt_runtime.py",
+    "reta_architecture/completion_runtime.py",
+    "reta_architecture/prompt_language.py",
+    "reta_architecture/prompt_session.py",
+    "reta_architecture/prompt_execution.py",
+    "reta_architecture/prompt_preparation.py",
+    "reta_architecture/prompt_interaction.py",
+    "i18n/words.py",
+    "i18n/words_context.py",
+    "i18n/words_matrix.py",
+    "i18n/words_runtime.py",
+    "libs/center.py",
+    "libs/LibRetaPrompt.py",
+    "libs/nestedAlx.py",
+    "libs/tableHandling.py",
+    "libs/lib4tables.py",
+    "libs/lib4tables_concat.py",
+    "libs/lib4tables_prepare.py",
+    "csv/religion.csv",
+    "csv/vn-religion.csv",
+    "tests/test_architecture_refactor.py",
+    "tests/test_command_parity.py",
+)
+
+
+def _normalise_path(path: str | Path) -> str:
+    return str(path).replace("\\", "/").lstrip("./")
+
+
+def is_runtime_artifact(path: str | Path) -> bool:
+    path = Path(path)
+    if any(part in IGNORED_DIR_NAMES for part in path.parts):
+        return True
+    return path.suffix in IGNORED_SUFFIXES
+
+
+def iter_manifest_files(root: Path) -> Iterable[Path]:
+    root = Path(root)
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(root)
+        if is_runtime_artifact(relative):
+            continue
+        yield path
+
+
+@dataclass(frozen=True)
+class RepoManifest:
+    root: str
+    file_count: int
+    total_bytes: int
+    digest: str
+    files: tuple[str, ...]
+    missing_required: tuple[str, ...]
+    runtime_artifact_count: int
+    csv_line_counts: Mapping[str, int]
+    suspicious_csvs: tuple[str, ...]
+
+    @classmethod
+    def from_tree(cls, root: Path, required_paths: Sequence[str] = REQUIRED_SOURCE_PATHS) -> "RepoManifest":
+        root = Path(root).resolve()
+        digest = hashlib.sha256()
+        files: list[str] = []
+        total_bytes = 0
+        for path in iter_manifest_files(root):
+            relative = _normalise_path(path.relative_to(root))
+            data = path.read_bytes()
+            files.append(relative)
+            total_bytes += len(data)
+            digest.update(relative.encode("utf-8"))
+            digest.update(b"\0")
+            digest.update(hashlib.sha256(data).digest())
+        file_set = set(files)
+        runtime_artifact_count = sum(
+            1
+            for path in root.rglob("*")
+            if path.is_file() and is_runtime_artifact(path.relative_to(root))
+        )
+        csv_line_counts = {
+            relative: len((root / relative).read_text(encoding="utf-8", errors="replace").splitlines())
+            for relative in sorted(file_set)
+            if relative.startswith("csv/") and relative.endswith(".csv")
+        }
+        suspicious_csvs = tuple(
+            relative
+            for relative, line_count in csv_line_counts.items()
+            if relative.endswith("religion.csv") and line_count < 500
+        )
+        missing_required = tuple(path for path in required_paths if _normalise_path(path) not in file_set)
+        return cls(
+            root=str(root),
+            file_count=len(files),
+            total_bytes=total_bytes,
+            digest=digest.hexdigest(),
+            files=tuple(files),
+            missing_required=missing_required,
+            runtime_artifact_count=runtime_artifact_count,
+            csv_line_counts=csv_line_counts,
+            suspicious_csvs=suspicious_csvs,
+        )
+
+    def snapshot(self, include_files: bool = False) -> dict:
+        data = {
+            "root": self.root,
+            "file_count": self.file_count,
+            "total_bytes": self.total_bytes,
+            "digest": self.digest,
+            "missing_required": list(self.missing_required),
+            "runtime_artifact_count": self.runtime_artifact_count,
+            "suspicious_csvs": list(self.suspicious_csvs),
+            "csv_line_counts": dict(self.csv_line_counts),
+        }
+        if include_files:
+            data["files"] = list(self.files)
+        return data
