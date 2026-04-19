@@ -41,6 +41,11 @@ Aufruf:
   {program_name} module-split-json
   {program_name} topology-json
   {program_name} inputs-json
+  {program_name} word-completion-json
+  {program_name} nested-completion-json
+  {program_name} row-ranges-json
+  {program_name} arithmetic-json
+  {program_name} console-io-json
   {program_name} column-selection-json
   {program_name} parameter-runtime-json
   {program_name} program-workflow-json
@@ -77,6 +82,22 @@ Aufruf:
   {program_name} architecture-contracts-md
   {program_name} architecture-witnesses-json
   {program_name} architecture-witnesses-md
+  {program_name} architecture-validation-json
+  {program_name} architecture-validation-md
+  {program_name} architecture-coherence-json
+  {program_name} architecture-coherence-md
+  {program_name} architecture-traces-json
+  {program_name} architecture-traces-md
+  {program_name} architecture-boundaries-json
+  {program_name} architecture-boundaries-md
+  {program_name} architecture-impact-json
+  {program_name} architecture-impact-md
+  {program_name} architecture-migration-json
+  {program_name} architecture-migration-md
+  {program_name} architecture-rehearsal-json
+  {program_name} architecture-rehearsal-md
+  {program_name} architecture-activation-json
+  {program_name} architecture-activation-md
 """
 
 
@@ -100,6 +121,21 @@ def main(argv):
         return 0
     if cmd == "inputs-json":
         dump(ARCH.snapshot()["inputs"])
+        return 0
+    if cmd == "word-completion-json":
+        dump(ARCH.bootstrap_word_completion().snapshot())
+        return 0
+    if cmd == "nested-completion-json":
+        dump(ARCH.bootstrap_nested_completion().snapshot())
+        return 0
+    if cmd == "row-ranges-json":
+        dump(ARCH.bootstrap_row_ranges().snapshot())
+        return 0
+    if cmd == "arithmetic-json":
+        dump(ARCH.bootstrap_arithmetic().snapshot())
+        return 0
+    if cmd == "console-io-json":
+        dump(ARCH.bootstrap_console_io().snapshot())
         return 0
     if cmd == "column-selection-json":
         dump(ARCH.bootstrap_column_selection().snapshot())
@@ -200,6 +236,142 @@ def main(argv):
     if cmd == "architecture-witnesses-json":
         dump(ARCH.bootstrap_architecture_witnesses().snapshot())
         return 0
+    if cmd == "architecture-validation-json":
+        dump(ARCH.bootstrap_architecture_validation().snapshot())
+        return 0
+    if cmd == "architecture-coherence-json":
+        dump(ARCH.bootstrap_architecture_coherence().snapshot())
+        return 0
+    if cmd == "architecture-traces-json":
+        dump(ARCH.bootstrap_architecture_traces().snapshot())
+        return 0
+    if cmd == "architecture-boundaries-json":
+        dump(ARCH.bootstrap_architecture_boundaries().snapshot())
+        return 0
+    if cmd == "architecture-impact-json":
+        dump(ARCH.bootstrap_architecture_impact().snapshot())
+        return 0
+    if cmd == "architecture-migration-json":
+        dump(ARCH.bootstrap_architecture_migration().snapshot())
+        return 0
+    if cmd == "architecture-rehearsal-json":
+        dump(ARCH.bootstrap_architecture_rehearsal().snapshot())
+        return 0
+    if cmd == "architecture-activation-json":
+        dump(ARCH.bootstrap_architecture_activation().snapshot())
+        return 0
+    if cmd == "architecture-validation-md":
+        validation = ARCH.bootstrap_architecture_validation()
+        print("# Reta Stage-40 Architektur-Validation")
+        print()
+        print("## Validierungsbaum")
+        print()
+        print("```text")
+        print(validation.text_diagram.rstrip())
+        print("```")
+        print()
+        print("## Mermaid")
+        print()
+        print(validation.mermaid_diagram.rstrip())
+        return 0
+    if cmd == "architecture-coherence-md":
+        coherence = ARCH.bootstrap_architecture_coherence()
+        print("# Reta Stage-40 Architektur-Kohärenz")
+        print()
+        print("## Kohärenzbaum")
+        print()
+        print("```text")
+        print(coherence.text_diagram.rstrip())
+        print("```")
+        print()
+        print("## Mermaid")
+        print()
+        print(coherence.mermaid_diagram.rstrip())
+        return 0
+    if cmd == "architecture-traces-md":
+        traces = ARCH.bootstrap_architecture_traces()
+        print("# Reta Stage-32 Architektur-Traces")
+        print()
+        print("## Trace-Baum")
+        print()
+        print("```text")
+        print(traces.text_diagram.rstrip())
+        print("```")
+        print()
+        print("## Mermaid")
+        print()
+        print(traces.mermaid_diagram.rstrip())
+        return 0
+    if cmd == "architecture-boundaries-md":
+        boundaries = ARCH.bootstrap_architecture_boundaries()
+        print("# Reta Stage-32 Architektur-Grenzen")
+        print()
+        print("## Boundary-Baum")
+        print()
+        print("```text")
+        print(boundaries.text_diagram.rstrip())
+        print("```")
+        print()
+        print("## Mermaid")
+        print()
+        print(boundaries.mermaid_diagram.rstrip())
+        return 0
+    if cmd == "architecture-impact-md":
+        impact = ARCH.bootstrap_architecture_impact()
+        print("# Reta Stage-33 Architektur-Impact")
+        print()
+        print("## Impact-Baum")
+        print()
+        print("```text")
+        print(impact.text_diagram.rstrip())
+        print("```")
+        print()
+        print("## Mermaid")
+        print()
+        print(impact.mermaid_diagram.rstrip())
+        return 0
+    if cmd == "architecture-migration-md":
+        migration = ARCH.bootstrap_architecture_migration()
+        print("# Reta Stage-34 Architektur-Migration")
+        print()
+        print("## Migration-Plan-Baum")
+        print()
+        print("```text")
+        print(migration.text_diagram.rstrip())
+        print("```")
+        print()
+        print("## Mermaid")
+        print()
+        print(migration.mermaid_diagram.rstrip())
+        return 0
+    if cmd == "architecture-rehearsal-md":
+        rehearsal = ARCH.bootstrap_architecture_rehearsal()
+        print("# Reta Stage-35 Architektur-Rehearsal")
+        print()
+        print("## Rehearsal-/Readiness-Baum")
+        print()
+        print("```text")
+        print(rehearsal.text_diagram.rstrip())
+        print("```")
+        print()
+        print("## Mermaid")
+        print()
+        print(rehearsal.mermaid_diagram.rstrip())
+        return 0
+    if cmd == "architecture-activation-md":
+        activation = ARCH.bootstrap_architecture_activation()
+        print("# Reta Stage-36 Architektur-Aktivierung")
+        print()
+        print("## Aktivierungs-/Commit-/Rollback-Baum")
+        print()
+        print("```text")
+        print(activation.text_diagram.rstrip())
+        print("```")
+        print()
+        print("## Mermaid")
+        print()
+        print(activation.mermaid_diagram.rstrip())
+        return 0
     if cmd == "architecture-witnesses-md":
         witnesses = ARCH.bootstrap_architecture_witnesses()
         print("# Reta Stage-30 Architektur-Witnesses")
@@ -230,7 +402,7 @@ def main(argv):
         return 0
     if cmd == "architecture-diagram-md":
         architecture_map = ARCH.bootstrap_architecture_map()
-        print("# Reta Stage-30 Gesamtarchitektur")
+        print("# Reta Stage-40 Gesamtarchitektur")
         print()
         print("## Kapselbaum")
         print()

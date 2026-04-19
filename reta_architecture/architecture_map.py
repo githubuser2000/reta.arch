@@ -6,7 +6,9 @@ Stage 27 named the categorical layer: categories, functors and natural
 transformations.  Stage 28 draws the whole system around that layer.  Stage 29
 adds explicit commutative diagrams and architecture laws over the map.  Stage 30
 adds concrete witnesses that connect those laws back to repository files, probes
-and tests.  The
+and tests.  Stage 31 adds an executable validation layer over all
+these meta-level bundles. Stage 34 turns Stage-33 impact candidates into a
+visible migration plan with waves, guarded steps and gate bindings.  The
 objects here are intentionally lightweight metadata objects, just like the
 Stage-27 category-theory module.  They answer three practical questions:
 
@@ -171,8 +173,8 @@ class ArchitectureMapBundle:
     def snapshot(self) -> dict:
         return {
             "class": type(self).__name__,
-            "stage": 30,
-            "purpose": "Gesamtarchitektur, Kapselstruktur, reta-zu-Paradigma-Zuordnung, Datenflussdiagramm, Stage-29-Verträge und Stage-30-Witness-Matrix.",
+            "stage": 41,
+            "purpose": "Gesamtarchitektur, Kapselstruktur, reta-zu-Paradigma-Zuordnung, Datenflussdiagramm, Verträge, Witness-Matrix, Validierung/Kohärenz, Trace-/Boundary-, Impact-, Migration-, Rehearsal-, Aktivierungs- und Stage-37-Row-Range-, Stage-38-Arithmetik- und Stage-39-Console-IO- und Stage-40-Word-Completion-Aktivierungsschicht.",
             "counts": {
                 "capsules": len(self.capsules),
                 "containment": len(self.containment),
@@ -238,7 +240,7 @@ def _capsules() -> tuple[ArchitectureCapsuleSpec, ...]:
             ("Gesamtfunktor-Fassade", "Kapsel-Root"),
             ("Legacy CLI/Prompt/import paths",),
             ("architecture snapshot", "runtime bundles", "probe JSON"),
-            "Stages 1-30",
+            "Stages 1-31",
             "Die oberste Fassade hält die neue Architektur zusammen und ersetzt den alten impliziten Monolithverbund als Orientierungspunkt.",
         ),
         _capsule(
@@ -457,20 +459,29 @@ def _capsules() -> tuple[ArchitectureCapsuleSpec, ...]:
                 "ArchitectureMapBundle",
                 "ArchitectureContractsBundle",
                 "ArchitectureWitnessBundle",
+                "ArchitectureValidationBundle",
+                "ArchitectureCoherenceBundle",
                 "CommutativeDiagramSpec",
                 "CapsuleContractSpec",
                 "RefactorLawSpec",
                 "AnchorWitnessSpec",
                 "CapsuleSliceSpec",
                 "DiagramWitnessSpec",
+                "ArchitectureValidationCheckSpec",
+                "ArchitectureValidationSummarySpec",
+                "CapsuleCoherenceSpec",
+                "FunctorialRouteSpec",
+                "NaturalityCoherenceSpec",
+                "LawCoherenceSpec",
+                "Stage31ArchitecturePlan",
                 "capsule diagram",
             ),
-            ("reta_architecture/category_theory.py", "reta_architecture/architecture_map.py", "reta_architecture/architecture_contracts.py", "reta_architecture/architecture_witnesses.py"),
-            ("math Kategorie", "Funktor", "natürliche Transformation", "kommutierendes Diagramm", "Architekturkarte", "Witness"),
+            ("reta_architecture/category_theory.py", "reta_architecture/architecture_map.py", "reta_architecture/architecture_contracts.py", "reta_architecture/architecture_witnesses.py", "reta_architecture/architecture_validation.py", "reta_architecture/architecture_coherence.py"),
+            ("math Kategorie", "Funktor", "natürliche Transformation", "kommutierendes Diagramm", "Architekturkarte", "Witness", "Validierung", "kommutierendes Diagramm", "Proof obligation", "Kohärenzmatrix"),
             ("all architecture bundles", "stage markdown history"),
-            ("category-theory-json", "architecture-map-json", "architecture-diagram-md", "architecture-contracts-json", "architecture-contracts-md", "architecture-witnesses-json", "architecture-witnesses-md"),
-            "Stages 27-30",
-            "Diese Ebene benennt mathematische Objekte, zeigt die Kapselung, hält seit Stage 29 kommutierende Pfade als Gesetze fest und verbindet sie seit Stage 30 mit konkreten Witnesses.",
+            ("category-theory-json", "architecture-map-json", "architecture-diagram-md", "architecture-contracts-json", "architecture-contracts-md", "architecture-witnesses-json", "architecture-witnesses-md", "architecture-validation-json", "architecture-validation-md", "architecture-coherence-json", "architecture-coherence-md"),
+            "Stages 27-31",
+            "Diese Ebene benennt mathematische Objekte, zeigt die Kapselung, hält seit Stage 29 kommutierende Pfade als Gesetze fest, verbindet sie seit Stage 30 mit Witnesses und prüft seit Stage 31 die Gesamtarchitektur als ausführbaren Validierungsbericht plus Kohärenzmatrix.",
         ),
     )
 
@@ -506,6 +517,8 @@ def _containment() -> tuple[CapsuleContainmentSpec, ...]:
         CapsuleContainmentSpec("CategoricalMetaCapsule", "RetaArchitectureRoot", "The meta layer describes the whole root without owning runtime behaviour."),
         CapsuleContainmentSpec("CategoricalMetaCapsule", "ArchitectureContractsBundle", "Stage 29 stores commutative diagrams, capsule contracts and refactor laws inside the categorical meta layer."),
         CapsuleContainmentSpec("CategoricalMetaCapsule", "ArchitectureWitnessBundle", "Stage 30 stores concrete repository witnesses for diagrams, laws, natural transformations and capsule slices."),
+        CapsuleContainmentSpec("CategoricalMetaCapsule", "ArchitectureValidationBundle", "Stage 31 validates categories, functors, natural transformations, contracts, witnesses, package integrity and Markdown history together."),
+        CapsuleContainmentSpec("CategoricalMetaCapsule", "ArchitectureCoherenceBundle", "Stage 31 also exposes a coherence matrix from capsule to category, functor, natural transformation, diagram, law and witness."),
     )
 
 
@@ -633,6 +646,22 @@ def _flows() -> tuple[ArchitectureFlowSpec, ...]:
             "ContractedNaturalityTransformation",
             "architecture_witnesses.py + tests/test_architecture_refactor.py",
             "Stage-30 witnesses show where the architecture contracts are concretely evidenced in the repository.",
+        ),
+        _flow(
+            "CategoricalMetaCapsule",
+            "RetaArchitectureRoot",
+            "executable architecture validation",
+            "ContractWitnessValidationTransformation",
+            "architecture_validation.py + tests/test_architecture_refactor.py",
+            "Stage-31 validation checks that category theory, map, contracts, witnesses, package integrity and Markdown history commute as one architecture report.",
+        ),
+        _flow(
+            "CategoricalMetaCapsule",
+            "RetaArchitectureRoot",
+            "coherence matrix over categories, routes, naturality and laws",
+            "ContractWitnessValidationTransformation",
+            "architecture_coherence.py + tests/test_architecture_refactor.py",
+            "Stage-31 coherence makes the capsule/category/functor/transformation/diagram/law/witness chain visible as one matrix.",
         ),
     )
 
@@ -810,6 +839,26 @@ def _legacy_mappings() -> tuple[RetaPartMappingSpec, ...]:
             "Diese Datei verbindet die mathematischen Verträge mit konkreten Repository-Ankern und Probe-Kommandos.",
         ),
         _mapping(
+            "reta_architecture/architecture_validation.py",
+            "Ausführbare Validierung über Kategorie-, Karten-, Vertrags-, Witness-, Paket- und Markdown-Schicht.",
+            "CategoricalMetaCapsule",
+            ("reta_architecture/architecture_validation.py", "reta_architecture/facade.py", "reta_architecture_probe_py.py"),
+            ("Validierung", "kommutierendes Diagramm", "Proof obligation", "natürliche Transformationen als geprüfte Überlappungen"),
+            "Stage 31",
+            "architecture-validation-json and architecture-validation-md expose the layer.",
+            "Die Meta-Architektur ist nicht mehr nur dokumentiert und bezeugt, sondern als Stage-31-Report ausführbar validierbar.",
+        ),
+        _mapping(
+            "reta_architecture/architecture_coherence.py",
+            "Kohärenzmatrix über Kapseln, Routen, natürliche Transformationen und Refactor-Gesetze.",
+            "CategoricalMetaCapsule",
+            ("reta_architecture/architecture_coherence.py", "reta_architecture/facade.py", "reta_architecture_probe_py.py"),
+            ("Kohärenz", "Funktor-Route", "Natürlichkeitsmatrix", "Refactor-Gesetz"),
+            "Stage 31",
+            "architecture-coherence-json and architecture-coherence-md expose the layer.",
+            "Diese Datei beantwortet stufenweise: welche Kapsel, Kategorie, welcher Funktor, welche natürliche Transformation, welches Diagramm, welches Gesetz und welcher Witness hängen an einer Änderung?",
+        ),
+        _mapping(
             "readme*.md / doc/*.md",
             "Benutzerdokumentation zu CLI, Prompt und Startdateien.",
             "LocalSectionCapsule + CategoricalMetaCapsule",
@@ -858,6 +907,7 @@ def _stage_steps() -> tuple[StageArchitectureStep, ...]:
         _step("Stage 28", "Gesamtarchitektur als Kapselkarte", ("scattered stage documentation", "pure name list of math objects"), ("architecture_map.py", "architecture-map-json", "architecture-diagram-md"), "CategoricalMetaCapsule", "Topologie/Morphismen/Gluing/Garben/Kategorien/Funktoren/Transformationen werden als Schichten- und Datenflussdiagramm sichtbar"),
         _step("Stage 29", "Kommutierende Diagramme und Architekturgesetze", ("implicit naturality/parity contracts",), ("architecture_contracts.py", "architecture-contracts-json", "architecture-contracts-md"), "CategoricalMetaCapsule", "natürliche Transformationen werden als prüfbare kommutierende Refactor-Pfade und Gesetze sichtbar"),
         _step("Stage 30", "Witness-Matrix und konkrete Nachweise", ("symbolic contracts without repository witness matrix",), ("architecture_witnesses.py", "architecture-witnesses-json", "architecture-witnesses-md"), "CategoricalMetaCapsule", "Kategorien/Funktoren/natürliche Transformationen werden an konkrete reta-Dateien, Kapseln, Probes und Tests rückgebunden"),
+        _step("Stage 31", "Ausführbare Architekturvalidierung", ("separate category/map/contract/witness layers",), ("architecture_validation.py", "architecture-validation-json", "architecture-validation-md", "architecture-coherence-json", "architecture-coherence-md"), "CategoricalMetaCapsule", "Kategorien, Funktoren, natürliche Transformationen, Diagramme, Witnesses, Paketintegrität und Markdown-Historie werden als ein Validierungsbericht geprüft"),
     )
 
 
@@ -877,6 +927,11 @@ RetaArchitectureRoot
 │  └─ HtmlReferenceSheaf
 ├─ InputPromptCapsule
 │  ├─ InputBundle + RowRangeSyntax + PromptVocabulary
+│  ├─ RowRangeMorphismBundle = activated row-range parser
+│  ├─ ArithmeticMorphismBundle = activated center arithmetic
+│  ├─ ConsoleIOMorphismBundle = activated center console/help utilities
+│  ├─ WordCompletionMorphismBundle = activated word-completion matching
+│  ├─ NestedCompletionMorphismBundle = activated hierarchical prompt completion
 │  ├─ PromptRuntime + CompletionRuntime + PromptLanguage
 │  └─ PromptSession + PromptExecution + PromptPreparation + PromptInteraction
 ├─ WorkflowGluingCapsule
@@ -896,6 +951,7 @@ RetaArchitectureRoot
 ├─ OutputRenderingCapsule
 │  ├─ OutputSyntax
 │  ├─ OutputSemantics
+│  ├─ ConsoleIOMorphismBundle = activated console/help/wrapping output service
 │  └─ TableOutput renderers
 ├─ CompatibilityCapsule
 │  ├─ reta.py / retaPrompt.py
@@ -905,7 +961,15 @@ RetaArchitectureRoot
    ├─ CategoryTheoryBundle
    ├─ ArchitectureMapBundle
    ├─ ArchitectureContractsBundle
-   └─ ArchitectureWitnessBundle
+   ├─ ArchitectureWitnessBundle
+   ├─ ArchitectureCoherenceBundle
+   ├─ ArchitectureValidationBundle
+   ├─ ArchitectureTraceBundle
+   ├─ ArchitectureBoundariesBundle
+   ├─ ArchitectureImpactBundle
+   ├─ ArchitectureMigrationBundle
+   ├─ ArchitectureRehearsalBundle
+   └─ ArchitectureActivationBundle
 """
 
 
@@ -924,12 +988,48 @@ flowchart TD
     Table -->|OutputRenderingFunctorFamily| Output[OutputRenderingCapsule<br/>shell/md/html/csv/...]
     Output -->|RenderedOutputNormalizationTransformation| Parity[CompatibilityCapsule<br/>legacy parity]
     Legacy -->|LegacyToArchitectureTransformation| Parity
-    Meta[CategoricalMetaCapsule<br/>categories/functors/natural transformations/map/laws/witnesses] -. describes .-> Root
+    Meta[CategoricalMetaCapsule<br/>categories/functors/natural transformations/map/laws/witnesses/validation/coherence/traces/boundaries/impact/migration/rehearsal/activation/activated row ranges/arithmetic/console io/nested completion] -. describes .-> Root
     Meta -. describes .-> Schema
     Meta -. describes .-> Sheaf
     Meta -. describes .-> Table
     Meta -. law checks .-> Parity
     Meta -. witness matrix .-> Parity
+    Meta -. validation report .-> Root
+    Meta -. coherence matrix .-> Root
+    Meta -->|CoherenceToTraceFunctor| Root
+    Meta -->|CoherenceToBoundaryFunctor| Root
+    Meta -->|TraceBoundaryImpactFunctor| Root
+    Meta -->|ImpactGateValidationFunctor| Root
+    Meta -->|ImpactToMigrationPlanFunctor| Root
+    Meta -->|MigrationGateCoherenceFunctor| Parity
+    Meta -->|MigrationStepRehearsalFunctor| Root
+    Meta -->|MigrationGateRehearsalFunctor| Workflow
+    Meta -->|RehearsalCoverFunctor| Schema
+    Meta -->|RehearsalGateValidationFunctor| Parity
+    Meta -->|RehearsalReadinessCoherenceFunctor| Meta
+    Meta -->|RehearsalActivationFunctor| Root
+    Meta -->|GateActivationFunctor| Parity
+    Meta -->|ActivationTransactionFunctor| Workflow
+    Meta -->|ActivationRollbackFunctor| Meta
+    Meta -->|ActivationValidationFunctor| Parity
+    Meta -->|ActivationCoherenceFunctor| Meta
+    Meta -->|RowRangeActivationFunctor| Input
+    Legacy -->|CenterRowRangeCompatibilityFunctor| Input
+    Input -->|RowRangeInputFunctor| Presheaf
+    Input -->|RowRangeValidationFunctor| Meta
+    Meta -->|ArithmeticActivationFunctor| Input
+    Legacy -->|CenterArithmeticCompatibilityFunctor| Input
+    Input -->|ArithmeticValidationFunctor| Meta
+    Meta -->|ConsoleIOActivationFunctor| Output
+    Legacy -->|CenterConsoleIOCompatibilityFunctor| Output
+    Output -->|ConsoleIOOutputValidationFunctor| Meta
+    Meta -->|WordCompletionActivationFunctor| Input
+    Legacy -->|LegacyWordCompleterCompatibilityFunctor| Input
+    Input -->|WordCompletionValidationFunctor| Meta
+    Meta -->|NestedCompletionActivationFunctor| Input
+    Legacy -->|LegacyNestedCompleterCompatibilityFunctor| Input
+    Input -->|NestedCompletionValidationFunctor| Meta
+    Meta -. validation report .-> Root
 ```
 """
 
@@ -951,15 +1051,504 @@ def _markdown_audit() -> MarkdownAuditSpec:
     )
 
 
+def _stage32_capsules() -> tuple[ArchitectureCapsuleSpec, ...]:
+    result = []
+    for capsule in _capsules():
+        if capsule.name == "CategoricalMetaCapsule":
+            result.append(ArchitectureCapsuleSpec(
+                name=capsule.name,
+                layer=capsule.layer,
+                contains=tuple(dict.fromkeys(tuple(capsule.contains) + ("ArchitectureTraceBundle", "ArchitectureBoundariesBundle", "RetaComponentTraceSpec", "CapsuleTraceSpec", "StageHistoryTraceSpec", "TraceHopSpec", "CapsuleBoundarySpec", "ModuleOwnershipSpec", "ImportEdgeSpec", "CapsuleImportEdgeSpec", "Stage32ArchitecturePlan", "Stage32BoundaryPlan"))),
+                code_owners=tuple(dict.fromkeys(tuple(capsule.code_owners) + ("reta_architecture/architecture_traces.py", "reta_architecture/architecture_boundaries.py"))),
+                paradigm_roles=tuple(dict.fromkeys(tuple(capsule.paradigm_roles) + ("Trace-Index", "Boundary-Importgraph"))),
+                inbound=capsule.inbound,
+                outbound=tuple(dict.fromkeys(tuple(capsule.outbound) + ("architecture-traces-json", "architecture-boundaries-json"))),
+                stage_span="Stages 27-32",
+                description=capsule.description + " Stage 32 ergänzt navigierbare Traces und reale Import-Boundaries.",
+            ))
+        else:
+            result.append(capsule)
+    return tuple(result)
+
+
+def _stage32_containment() -> tuple[CapsuleContainmentSpec, ...]:
+    return (
+        CapsuleContainmentSpec("CategoricalMetaCapsule", "ArchitectureTraceBundle", "Stage 32 makes old reta owner to capsule/category/functor/transformation/diagram/witness paths navigable."),
+        CapsuleContainmentSpec("CategoricalMetaCapsule", "ArchitectureBoundariesBundle", "Stage 32 records concrete Python import morphisms as explicit capsule-boundary edges."),
+    )
+
+
+def _stage32_flows() -> tuple[ArchitectureFlowSpec, ...]:
+    return (
+        _flow("CategoricalMetaCapsule", "RetaArchitectureRoot", "trace old owner to categorical route", "CoherenceToTraceFunctor", "ArchitectureTraceBundle", "Stage 32 turns coherence into navigation."),
+        _flow("CategoricalMetaCapsule", "RetaArchitectureRoot", "classify imports as capsule boundaries", "CoherenceToBoundaryFunctor", "ArchitectureBoundariesBundle", "Stage 32 turns real imports into boundary morphisms."),
+    )
+
+
+def _stage32_legacy_mappings() -> tuple[RetaPartMappingSpec, ...]:
+    return (
+        RetaPartMappingSpec("reta_architecture/architecture_traces.py", "not present before Stage 32", "CategoricalMetaCapsule", ("ArchitectureTraceBundle",), ("Trace", "Functor", "natural transformation"), "Stage 32", "architecture-traces-json", "Navigable owner/capsule/category route."),
+        RetaPartMappingSpec("reta_architecture/architecture_boundaries.py", "not present before Stage 32", "CategoricalMetaCapsule", ("ArchitectureBoundariesBundle",), ("Boundary", "Morphism", "category"), "Stage 32", "architecture-boundaries-json", "Concrete import boundary graph."),
+    )
+
+
+def _stage32_stage_steps() -> tuple[StageArchitectureStep, ...]:
+    return (
+        StageArchitectureStep("Stage 32", "Trace-Navigation und Boundary-Importgraph", ("coherence matrix without direct old-owner navigation", "real Python imports not yet classified as capsule crossings"), ("architecture_traces.py", "architecture-traces-json", "architecture-traces-md", "architecture_boundaries.py", "architecture-boundaries-json", "architecture-boundaries-md"), "CategoricalMetaCapsule", "alte reta-Komponenten werden als Trace-Graph verfolgbar; reale Python-Importe werden als Kapselgrenzen geprüft"),
+    )
+
+
+def _stage33_capsules() -> tuple[ArchitectureCapsuleSpec, ...]:
+    result = []
+    for capsule in _stage32_capsules():
+        if capsule.name == "CategoricalMetaCapsule":
+            result.append(ArchitectureCapsuleSpec(
+                name=capsule.name,
+                layer=capsule.layer,
+                contains=tuple(dict.fromkeys(tuple(capsule.contains) + ("ArchitectureImpactBundle", "ImpactSourceSpec", "ImpactContractSpec", "RegressionGateSpec", "MigrationCandidateSpec", "ImpactValidationSpec", "Stage33ArchitecturePlan"))),
+                code_owners=tuple(dict.fromkeys(tuple(capsule.code_owners) + ("reta_architecture/architecture_impact.py",))),
+                paradigm_roles=tuple(dict.fromkeys(tuple(capsule.paradigm_roles) + ("Impact- und Migration-Gate-Schicht",))),
+                inbound=capsule.inbound,
+                outbound=tuple(dict.fromkeys(tuple(capsule.outbound) + ("architecture-impact-json", "architecture-impact-md"))),
+                stage_span="Stages 27-33",
+                description=capsule.description + " Stage 33 ergänzt Impact-Routen und Regression-Gates über Trace- und Boundary-Morphismen.",
+            ))
+        else:
+            result.append(capsule)
+    return tuple(result)
+
+
+def _stage33_containment() -> tuple[CapsuleContainmentSpec, ...]:
+    return (
+        CapsuleContainmentSpec("CategoricalMetaCapsule", "ArchitectureImpactBundle", "Stage 33 maps trace and boundary morphisms to impact contracts, regression gates and guarded migration candidates."),
+    )
+
+
+def _stage33_flows() -> tuple[ArchitectureFlowSpec, ...]:
+    return (
+        _flow("CategoricalMetaCapsule", "RetaArchitectureRoot", "compute impact from traces and boundaries", "TraceBoundaryImpactFunctor", "ArchitectureImpactBundle", "Stage 33 turns visible routes into affected diagrams, laws and gates."),
+        _flow("CategoricalMetaCapsule", "CompatibilityCapsule", "validate guarded migration candidates", "ImpactGateValidationFunctor", "ArchitectureImpactBundle", "Stage 33 feeds impact gates back into compatibility/parity planning."),
+    )
+
+
+def _stage33_legacy_mappings() -> tuple[RetaPartMappingSpec, ...]:
+    return (
+        RetaPartMappingSpec("reta_architecture/architecture_impact.py", "not present before Stage 33", "CategoricalMetaCapsule", ("ArchitectureImpactBundle",), ("Impact", "Functor", "natural transformation", "Migration Gate"), "Stage 33", "architecture-impact-json", "Impact/gate calculus over trace and boundary morphisms."),
+    )
+
+
+def _stage33_stage_steps() -> tuple[StageArchitectureStep, ...]:
+    return (
+        StageArchitectureStep("Stage 33", "Impact- und Migration-Gate-Schicht", ("trace routes and import boundaries are visible but not yet converted into change gates",), ("architecture_impact.py", "architecture-impact-json", "architecture-impact-md", "TraceBoundaryImpactSquare", "ImpactGateValidationSquare", "ArchitectureImpactGateLaw"), "CategoricalMetaCapsule", "Stage-32-Traces und Boundaries werden zu Impact-Routen; spätere Umbauten müssen über Gate-Probes und natürliche Transformationen laufen"),
+    )
+
+
+def _stage34_capsules() -> tuple[ArchitectureCapsuleSpec, ...]:
+    result = []
+    for capsule in _stage33_capsules():
+        if capsule.name == "CategoricalMetaCapsule":
+            result.append(ArchitectureCapsuleSpec(
+                name=capsule.name,
+                layer=capsule.layer,
+                contains=tuple(dict.fromkeys(tuple(capsule.contains) + ("ArchitectureMigrationBundle", "MigrationWaveSpec", "MigrationStepSpec", "MigrationGateBindingSpec", "MigrationInvariantSpec", "MigrationValidationSpec", "Stage34ArchitecturePlan"))),
+                code_owners=tuple(dict.fromkeys(tuple(capsule.code_owners) + ("reta_architecture/architecture_migration.py",))),
+                paradigm_roles=tuple(dict.fromkeys(tuple(capsule.paradigm_roles) + ("Migration-Plan-Schicht",))),
+                inbound=capsule.inbound,
+                outbound=tuple(dict.fromkeys(tuple(capsule.outbound) + ("architecture-migration-json", "architecture-migration-md"))),
+                stage_span="Stages 27-34",
+                description=capsule.description + " Stage 34 ergänzt einen Migration-Plan über Impact-Kandidaten, Wellen, Schritte und Gate-Bindings.",
+            ))
+        else:
+            result.append(capsule)
+    return tuple(result)
+
+
+def _stage34_containment() -> tuple[CapsuleContainmentSpec, ...]:
+    return (
+        CapsuleContainmentSpec("CategoricalMetaCapsule", "ArchitectureMigrationBundle", "Stage 34 translates impact candidates and regression gates into ordered migration waves, guarded steps, gate bindings and invariants."),
+    )
+
+
+def _stage34_flows() -> tuple[ArchitectureFlowSpec, ...]:
+    return (
+        _flow("CategoricalMetaCapsule", "RetaArchitectureRoot", "plan guarded migration waves from impact candidates", "ImpactToMigrationPlanFunctor", "ArchitectureMigrationBundle", "Stage 34 turns impact gates into a future migration plan."),
+        _flow("CategoricalMetaCapsule", "CompatibilityCapsule", "bind migration gates before future extraction", "MigrationGateCoherenceFunctor", "ArchitectureMigrationBundle", "Stage 34 feeds gate bindings back into compatibility/parity planning."),
+    )
+
+
+def _stage34_legacy_mappings() -> tuple[RetaPartMappingSpec, ...]:
+    return (
+        RetaPartMappingSpec("reta_architecture/architecture_migration.py", "not present before Stage 34", "CategoricalMetaCapsule", ("ArchitectureMigrationBundle",), ("Migration Plan", "Functor", "natural transformation", "Gate Binding"), "Stage 34", "architecture-migration-json", "Migration-plan calculus over Stage-33 impact candidates, gate bindings and wave invariants."),
+    )
+
+
+def _stage34_stage_steps() -> tuple[StageArchitectureStep, ...]:
+    return (
+        StageArchitectureStep("Stage 34", "Migration-Plan und Gate-Binding", ("impact candidates and regression gates visible but not yet ordered into waves",), ("architecture_migration.py", "architecture-migration-json", "architecture-migration-md", "ImpactMigrationPlanningSquare", "MigrationGateCoherenceSquare", "ArchitectureMigrationOrderingLaw"), "CategoricalMetaCapsule", "Stage-33-Impact-Kandidaten werden zu geordneten, gate-geschützten Migrationswellen; spätere Extraktionen erhalten klare Exit-Kriterien"),
+    )
+
+
+def _stage35_capsules() -> tuple[ArchitectureCapsuleSpec, ...]:
+    result = []
+    for capsule in _stage34_capsules():
+        if capsule.name == "CategoricalMetaCapsule":
+            result.append(ArchitectureCapsuleSpec(
+                name=capsule.name,
+                layer=capsule.layer,
+                contains=tuple(dict.fromkeys(tuple(capsule.contains) + ("ArchitectureRehearsalBundle", "RehearsalOpenSetSpec", "RehearsalMoveSpec", "GateRehearsalSpec", "RehearsalCoverSpec", "RehearsalValidationSpec", "Stage35ArchitecturePlan"))),
+                code_owners=tuple(dict.fromkeys(tuple(capsule.code_owners) + ("reta_architecture/architecture_rehearsal.py",))),
+                paradigm_roles=tuple(dict.fromkeys(tuple(capsule.paradigm_roles) + ("Rehearsal-/Readiness-Schicht",))),
+                inbound=capsule.inbound,
+                outbound=tuple(dict.fromkeys(tuple(capsule.outbound) + ("architecture-rehearsal-json", "architecture-rehearsal-md"))),
+                stage_span="Stages 27-35",
+                description=capsule.description + " Stage 35 ergänzt Trockenlauf-Readiness über geplante Migrationsschritte und Gate-Suites.",
+            ))
+        else:
+            result.append(capsule)
+    return tuple(result)
+
+
+def _stage35_containment() -> tuple[CapsuleContainmentSpec, ...]:
+    return (
+        CapsuleContainmentSpec("CategoricalMetaCapsule", "ArchitectureRehearsalBundle", "Stage 35 rehearses Stage-34 migration waves as open sets, moves, gate suites and readiness covers."),
+    )
+
+
+def _stage35_flows() -> tuple[ArchitectureFlowSpec, ...]:
+    return (
+        _flow("CategoricalMetaCapsule", "RetaArchitectureRoot", "rehearse guarded migration moves before execution", "MigrationStepRehearsalFunctor", "ArchitectureRehearsalBundle", "Stage 35 turns planned migration steps into dry-run refactor morphisms."),
+        _flow("CategoricalMetaCapsule", "WorkflowGluingCapsule", "lift migration gate bindings into rehearsal suites", "MigrationGateRehearsalFunctor", "ArchitectureRehearsalBundle", "Stage 35 maps Stage-34 gate bindings to preflight/postflight rehearsal suites."),
+        _flow("CategoricalMetaCapsule", "SchemaTopologyCapsule", "cover migration waves by rehearsal open sets", "RehearsalCoverFunctor", "ArchitectureRehearsalBundle", "Stage 35 treats each ordered migration wave as a topological open rehearsal region with a cover."),
+        _flow("CategoricalMetaCapsule", "CompatibilityCapsule", "validate rehearsal readiness gates", "RehearsalGateValidationFunctor", "ArchitectureRehearsalBundle", "Stage 35 feeds preflight/postflight gate suites into validation and compatibility planning."),
+        _flow("CategoricalMetaCapsule", "CategoricalMetaCapsule", "reflect rehearsal readiness back into coherence", "RehearsalReadinessCoherenceFunctor", "ArchitectureRehearsalBundle", "Stage 35 reflects successful rehearsal gates into the meta-coherence matrix."),
+    )
+
+
+def _stage35_legacy_mappings() -> tuple[RetaPartMappingSpec, ...]:
+    return (
+        RetaPartMappingSpec("reta_architecture/architecture_rehearsal.py", "not present before Stage 35", "CategoricalMetaCapsule", ("ArchitectureRehearsalBundle",), ("Rehearsal", "Topologie", "Morphism", "Functor", "natural transformation", "Readiness Gate"), "Stage 35", "architecture-rehearsal-json", "Dry-run/readiness calculus over Stage-34 migration waves, steps and gate bindings."),
+    )
+
+
+def _stage35_stage_steps() -> tuple[StageArchitectureStep, ...]:
+    return (
+        StageArchitectureStep("Stage 35", "Rehearsal-/Readiness-Schicht", ("ordered migration plan without dry-run moves",), ("architecture_rehearsal.py", "architecture-rehearsal-json", "architecture-rehearsal-md", "MigrationRehearsalSquare", "RehearsalReadinessValidationSquare", "ArchitectureRehearsalReadinessLaw"), "CategoricalMetaCapsule", "Stage-34-Migrationsschritte werden zu topologischen Trockenlauf-Umgebungen, Refactor-Morphismen, Gate-Suites und universellen Readiness-Covers"),
+    )
+
+
+
+
+def _stage36_capsules() -> tuple[ArchitectureCapsuleSpec, ...]:
+    result = []
+    for capsule in _stage35_capsules():
+        if capsule.name == "CategoricalMetaCapsule":
+            result.append(ArchitectureCapsuleSpec(
+                name=capsule.name,
+                layer=capsule.layer,
+                contains=tuple(dict.fromkeys(tuple(capsule.contains) + ("ArchitectureActivationBundle", "ActivationWindowSpec", "ActivationUnitSpec", "ActivationGateSpec", "ActivationRollbackSpec", "ActivationTransactionSpec", "ActivationValidationSpec", "Stage36ArchitecturePlan"))),
+                code_owners=tuple(dict.fromkeys(tuple(capsule.code_owners) + ("reta_architecture/architecture_activation.py",))),
+                paradigm_roles=tuple(dict.fromkeys(tuple(capsule.paradigm_roles) + ("Activation-/Commit-/Rollback-Schicht",))),
+                inbound=capsule.inbound,
+                outbound=tuple(dict.fromkeys(tuple(capsule.outbound) + ("architecture-activation-json", "architecture-activation-md"))),
+                stage_span="Stages 27-36",
+                description=capsule.description + " Stage 36 ergänzt commit-geschützte Aktivierungsfenster, Rollback-Sektionen und Transaktionen über Stage-35-Rehearsals.",
+            ))
+        else:
+            result.append(capsule)
+    return tuple(result)
+
+
+def _stage36_containment() -> tuple[CapsuleContainmentSpec, ...]:
+    return (
+        CapsuleContainmentSpec("CategoricalMetaCapsule", "ArchitectureActivationBundle", "Stage 36 lifts Stage-35 rehearsal moves into activation windows, commit gates, rollback sections and transaction covers."),
+    )
+
+
+def _stage36_flows() -> tuple[ArchitectureFlowSpec, ...]:
+    return (
+        _flow("CategoricalMetaCapsule", "RetaArchitectureRoot", "activate rehearsed migration moves as commit envelopes", "RehearsalActivationFunctor", "ArchitectureActivationBundle", "Stage 36 turns dry-run moves into not-yet-executed activation units."),
+        _flow("CategoricalMetaCapsule", "CompatibilityCapsule", "bind activation gates to compatibility/parity safety", "GateActivationFunctor", "ArchitectureActivationBundle", "Stage 36 lifts gate rehearsals into preflight/commit/postflight/rollback gate suites."),
+        _flow("CategoricalMetaCapsule", "WorkflowGluingCapsule", "glue activation units into transaction windows", "ActivationTransactionFunctor", "ArchitectureActivationBundle", "Stage 36 treats each activation window as a universal transaction cover."),
+        _flow("CategoricalMetaCapsule", "CategoricalMetaCapsule", "retain rollback sections for future moves", "ActivationRollbackFunctor", "ArchitectureActivationBundle", "Stage 36 keeps every potential commit reversible before future runtime movement."),
+        _flow("CategoricalMetaCapsule", "CompatibilityCapsule", "validate activation commit gates", "ActivationValidationFunctor", "ArchitectureActivationBundle", "Stage 36 feeds activation gates and rollback sections into validation and compatibility planning."),
+        _flow("CategoricalMetaCapsule", "CategoricalMetaCapsule", "reflect activation transactions back into coherence", "ActivationCoherenceFunctor", "ArchitectureActivationBundle", "Stage 36 reflects successful activation transaction coverage into the meta-coherence matrix."),
+    )
+
+
+def _stage36_legacy_mappings() -> tuple[RetaPartMappingSpec, ...]:
+    return (
+        RetaPartMappingSpec("reta_architecture/architecture_activation.py", "not present before Stage 36", "CategoricalMetaCapsule", ("ArchitectureActivationBundle",), ("Activation", "Morphism", "Functor", "natural transformation", "Commit Gate", "Rollback Section"), "Stage 36", "architecture-activation-json", "Activation/commit/rollback calculus over Stage-35 rehearsal moves."),
+    )
+
+
+def _stage36_stage_steps() -> tuple[StageArchitectureStep, ...]:
+    return (
+        StageArchitectureStep("Stage 36", "Activation-/Commit-/Rollback-Schicht", ("rehearsal/readiness moves without activation envelope",), ("architecture_activation.py", "architecture-activation-json", "architecture-activation-md", "RehearsalActivationSquare", "ActivationRollbackValidationSquare", "ArchitectureActivationCommitLaw"), "CategoricalMetaCapsule", "Stage-35-Rehearsal-Moves werden zu commit-geschützten Aktivierungsfenstern, Rollback-Sektionen und universell geklebten Transaktionen; weiterhin ohne Runtime-Verhaltensänderung"),
+    )
+
+
+def _stage37_capsules() -> tuple[ArchitectureCapsuleSpec, ...]:
+    result = []
+    for capsule in _stage36_capsules():
+        if capsule.name == "InputPromptCapsule":
+            result.append(ArchitectureCapsuleSpec(
+                name=capsule.name,
+                layer=capsule.layer,
+                contains=tuple(dict.fromkeys(tuple(capsule.contains) + ("RowRangeMorphismBundle", "RowRangeExpression", "RowIndexSet"))),
+                code_owners=tuple(dict.fromkeys(tuple(capsule.code_owners) + ("reta_architecture/row_ranges.py",))),
+                paradigm_roles=tuple(dict.fromkeys(tuple(capsule.paradigm_roles) + ("aktivierter Zeilenbereichs-Morphismus",))),
+                inbound=tuple(dict.fromkeys(tuple(capsule.inbound) + ("RowRangeActivationFunctor", "CenterRowRangeCompatibilityFunctor"))),
+                outbound=tuple(dict.fromkeys(tuple(capsule.outbound) + ("row-ranges-json", "RowRangeInputFunctor", "RowRangeValidationFunctor"))),
+                stage_span="Stages 4, 6-12, 37",
+                description=capsule.description + " Stage 37 aktiviert die Zeilenbereichslogik: center.py delegiert an RowRangeMorphismBundle.",
+            ))
+        else:
+            result.append(capsule)
+    return tuple(result)
+
+
+def _stage37_containment() -> tuple[CapsuleContainmentSpec, ...]:
+    return (
+        CapsuleContainmentSpec("InputPromptCapsule", "RowRangeMorphismBundle", "Stage 37 moves BereichToNumbers2/isZeilenAngabe logic from center.py into an activated architecture morphism bundle."),
+    )
+
+
+def _stage37_flows() -> tuple[ArchitectureFlowSpec, ...]:
+    return (
+        _flow("CategoricalMetaCapsule", "InputPromptCapsule", "activate planned row-range migration unit", "RowRangeActivationFunctor", "reta_architecture/row_ranges.py", "Stage 37 performs the first controlled activation from the Stage-36 plan."),
+        _flow("CompatibilityCapsule", "InputPromptCapsule", "delegate legacy center row-range API to architecture", "CenterRowRangeCompatibilityFunctor", "libs/center.py", "center.py keeps old names but no longer owns the row-range expansion algorithm."),
+        _flow("InputPromptCapsule", "LocalSectionCapsule", "treat expanded row sets as local input sections", "RowRangeInputFunctor", "reta_architecture/row_ranges.py", "Row-range expressions become local row-index sections for later prompt/workflow use."),
+        _flow("InputPromptCapsule", "CategoricalMetaCapsule", "validate activated row-range morphism", "RowRangeValidationFunctor", "reta_architecture/architecture_validation.py", "Stage 37 adds direct validation for the activated parser and wrappers."),
+    )
+
+
+def _stage37_legacy_mappings() -> tuple[RetaPartMappingSpec, ...]:
+    return (
+        RetaPartMappingSpec("libs/center.py", "legacy row-range parser implementation: BereichToNumbers2/isZeilenAngabe", "InputPromptCapsule", ("reta_architecture/row_ranges.py", "libs/center.py"), ("Topologie", "Morphism", "LocalSection", "Functor", "natural transformation"), "Stage 37", "row-ranges-json", "Zeilenbereichslogik ist jetzt echter Architektur-Besitz; center.py ist Kompatibilitätsfassade."),
+        RetaPartMappingSpec("reta_architecture/row_ranges.py", "not present before Stage 37", "InputPromptCapsule", ("RowRangeMorphismBundle",), ("aktivierter Morphismus", "Prägarben-Sektion", "natürliche Transformation"), "Stage 37", "row-ranges-json", "Activated row-range morphisms for input/prompt open sets."),
+    )
+
+
+def _stage37_stage_steps() -> tuple[StageArchitectureStep, ...]:
+    return (
+        StageArchitectureStep("Stage 37", "Aktivierte Row-Range-Morphismen", ("Stage-36 activation envelopes existed but no runtime logic had been moved by that activation path",), ("row_ranges.py", "row-ranges-json", "CenterRowRangeCompatibilitySquare", "ActivatedRowRangeLaw"), "InputPromptCapsule", "Erster echter Aktivierungsschritt: BereichToNumbers2/isZeilenAngabe/Generator-Literal-Parsing wandern aus center.py in RowRangeMorphismBundle; center.py bleibt Legacy-Fassade"),
+    )
+
+
+def _stage38_capsules() -> tuple[ArchitectureCapsuleSpec, ...]:
+    result = []
+    for capsule in _stage37_capsules():
+        if capsule.name == "InputPromptCapsule":
+            result.append(ArchitectureCapsuleSpec(
+                name=capsule.name,
+                layer=capsule.layer,
+                contains=tuple(dict.fromkeys(tuple(capsule.contains) + ("ArithmeticMorphismBundle", "ArithmeticExpression", "FactorPairSet", "PrimeFactorSection", "DivisorSection"))),
+                code_owners=tuple(dict.fromkeys(tuple(capsule.code_owners) + ("reta_architecture/arithmetic.py",))),
+                paradigm_roles=tuple(dict.fromkeys(tuple(capsule.paradigm_roles) + ("aktivierter Arithmetik-Morphismus", "Teiler-Gluing über Row-Range-Topologie"))),
+                inbound=tuple(dict.fromkeys(tuple(capsule.inbound) + ("ArithmeticActivationFunctor", "CenterArithmeticCompatibilityFunctor", "ArithmeticRowRangeGluingFunctor"))),
+                outbound=tuple(dict.fromkeys(tuple(capsule.outbound) + ("arithmetic-json", "ArithmeticValidationFunctor"))),
+                stage_span="Stages 4, 6-12, 37-38",
+                description=capsule.description + " Stage 38 aktiviert die center-Arithmetik: multiples/teiler/primfaktoren/primRepeat werden Wrapper über ArithmeticMorphismBundle.",
+            ))
+        else:
+            result.append(capsule)
+    return tuple(result)
+
+
+def _stage38_containment() -> tuple[CapsuleContainmentSpec, ...]:
+    return (
+        CapsuleContainmentSpec("InputPromptCapsule", "ArithmeticMorphismBundle", "Stage 38 moves center-level arithmetic helpers into an activated architecture morphism bundle that glues over the Stage-37 row-range topology."),
+    )
+
+
+def _stage38_flows() -> tuple[ArchitectureFlowSpec, ...]:
+    return (
+        _flow("CategoricalMetaCapsule", "InputPromptCapsule", "activate planned arithmetic migration unit", "ArithmeticActivationFunctor", "reta_architecture/arithmetic.py", "Stage 38 performs the second controlled activation from the Stage-36 plan."),
+        _flow("CompatibilityCapsule", "InputPromptCapsule", "delegate legacy center arithmetic API to architecture", "CenterArithmeticCompatibilityFunctor", "libs/center.py", "center.py keeps old arithmetic names but no longer owns the factor/prime/divisor algorithms."),
+        _flow("InputPromptCapsule", "InputPromptCapsule", "glue divisor ranges over activated row-range topology", "ArithmeticRowRangeGluingFunctor", "reta_architecture/arithmetic.py", "Stage 38 composes Stage-37 RowIndexSet sections with factor-pair morphisms."),
+        _flow("InputPromptCapsule", "CategoricalMetaCapsule", "validate activated arithmetic morphism", "ArithmeticValidationFunctor", "reta_architecture/architecture_validation.py", "Stage 38 adds direct validation for arithmetic wrappers and architecture results."),
+    )
+
+
+def _stage38_legacy_mappings() -> tuple[RetaPartMappingSpec, ...]:
+    return (
+        RetaPartMappingSpec("libs/center.py", "legacy arithmetic implementation: multiples/teiler/primfaktoren/primRepeat/textHatZiffer", "InputPromptCapsule", ("reta_architecture/arithmetic.py", "libs/center.py"), ("Morphism", "universelle Eigenschaft", "Functor", "natural transformation"), "Stage 38", "arithmetic-json", "center-Arithmetik ist jetzt Architektur-Besitz; center.py bleibt Kompatibilitätsfassade."),
+        RetaPartMappingSpec("reta_architecture/arithmetic.py", "not present before Stage 38", "InputPromptCapsule", ("ArithmeticMorphismBundle",), ("aktivierter Morphismus", "Teiler-Gluing", "natürliche Transformation"), "Stage 38", "arithmetic-json", "Activated arithmetic morphisms for center-level factor, divisor and prime helpers."),
+    )
+
+
+def _stage38_stage_steps() -> tuple[StageArchitectureStep, ...]:
+    return (
+        StageArchitectureStep("Stage 38", "Aktivierte Arithmetik-Morphismen", ("Stage-37 row-range activation existed but center-level arithmetic still owned its own algorithms",), ("arithmetic.py", "arithmetic-json", "CenterArithmeticCompatibilitySquare", "ActivatedArithmeticLaw"), "InputPromptCapsule", "Zweiter echter Aktivierungsschritt: multiples/teiler/primfaktoren/primRepeat/textHatZiffer wandern aus center.py in ArithmeticMorphismBundle; center.py bleibt Legacy-Fassade"),
+    )
+
+
+def _stage39_capsules() -> tuple[ArchitectureCapsuleSpec, ...]:
+    result = []
+    for capsule in _stage38_capsules():
+        if capsule.name == "InputPromptCapsule":
+            result.append(ArchitectureCapsuleSpec(
+                name=capsule.name,
+                layer=capsule.layer,
+                contains=tuple(dict.fromkeys(tuple(capsule.contains) + ("ConsoleIOMorphismBundle", "HelpMarkdownSection", "FiniteUtilitySection"))),
+                code_owners=tuple(dict.fromkeys(tuple(capsule.code_owners) + ("reta_architecture/console_io.py",))),
+                paradigm_roles=tuple(dict.fromkeys(tuple(capsule.paradigm_roles) + ("aktivierte Hilfe-/Debug-/Utility-Morphismen",))),
+                inbound=tuple(dict.fromkeys(tuple(capsule.inbound) + ("ConsoleIOActivationFunctor", "CenterConsoleIOCompatibilityFunctor"))),
+                outbound=tuple(dict.fromkeys(tuple(capsule.outbound) + ("console-io-json", "ConsoleIOValidationFunctor"))),
+                stage_span="Stages 4, 6-12, 37-39",
+                description=capsule.description + " Stage 39 aktiviert center-Hilfe-/Debug-/Utility-Funktionen als ConsoleIOMorphismBundle.",
+            ))
+        elif capsule.name == "OutputRenderingCapsule":
+            result.append(ArchitectureCapsuleSpec(
+                name=capsule.name,
+                layer=capsule.layer,
+                contains=tuple(dict.fromkeys(tuple(capsule.contains) + ("ConsoleIOMorphismBundle", "ConsoleOutputSection"))),
+                code_owners=tuple(dict.fromkeys(tuple(capsule.code_owners) + ("reta_architecture/console_io.py",))),
+                paradigm_roles=tuple(dict.fromkeys(tuple(capsule.paradigm_roles) + ("aktivierter Console-Output-Morphismus",))),
+                inbound=tuple(dict.fromkeys(tuple(capsule.inbound) + ("ConsoleIOOutputRenderingFunctor", "CenterConsoleIOCompatibilityFunctor"))),
+                outbound=tuple(dict.fromkeys(tuple(capsule.outbound) + ("console-io-json", "ConsoleIOValidationFunctor"))),
+                stage_span=capsule.stage_span + ", 39",
+                description=capsule.description + " Stage 39 macht CLI-Ausgabe, Hilfe-Rendering und Terminal-Wrapping zu einem aktivierten Output-Service.",
+            ))
+        else:
+            result.append(capsule)
+    return tuple(result)
+
+
+def _stage39_containment() -> tuple[CapsuleContainmentSpec, ...]:
+    return (
+        CapsuleContainmentSpec("InputPromptCapsule", "ConsoleIOMorphismBundle", "Stage 39 moves center-level help/debug/utility helpers into an activated architecture morphism bundle."),
+        CapsuleContainmentSpec("OutputRenderingCapsule", "ConsoleIOMorphismBundle", "Stage 39 treats CLI output and terminal wrapping as an activated output-rendering service."),
+    )
+
+
+def _stage39_flows() -> tuple[ArchitectureFlowSpec, ...]:
+    return (
+        _flow("CategoricalMetaCapsule", "OutputRenderingCapsule", "activate planned console-io migration unit", "ConsoleIOActivationFunctor", "reta_architecture/console_io.py", "Stage 39 performs the third controlled activation from the Stage-36 plan."),
+        _flow("CompatibilityCapsule", "OutputRenderingCapsule", "delegate legacy center console/help API to architecture", "CenterConsoleIOCompatibilityFunctor", "libs/center.py", "center.py keeps old console/help/utility names but no longer owns those algorithms."),
+        _flow("OutputRenderingCapsule", "OutputRenderingCapsule", "render console output sections", "ConsoleIOOutputRenderingFunctor", "reta_architecture/console_io.py", "Stage 39 composes help text, cliout and terminal wrapping as output morphisms."),
+        _flow("OutputRenderingCapsule", "CategoricalMetaCapsule", "validate activated console/io morphism", "ConsoleIOValidationFunctor", "reta_architecture/architecture_validation.py", "Stage 39 adds direct validation for console/help/utility wrappers and architecture results."),
+    )
+
+
+def _stage39_legacy_mappings() -> tuple[RetaPartMappingSpec, ...]:
+    return (
+        RetaPartMappingSpec("libs/center.py", "legacy console/help/debug/utility implementation: retaHilfe/retaPromptHilfe/getTextWrapThings/cliout/x/alxp/chunks/unique_everseen/DefaultOrderedDict", "OutputRenderingCapsule", ("reta_architecture/console_io.py", "libs/center.py"), ("Morphism", "Prägarbe", "Output-Functor", "natural transformation"), "Stage 39", "console-io-json", "center-Console-/Help-/Utility-Logik ist jetzt Architektur-Besitz; center.py bleibt Kompatibilitätsfassade."),
+        RetaPartMappingSpec("reta_architecture/console_io.py", "not present before Stage 39", "OutputRenderingCapsule", ("ConsoleIOMorphismBundle",), ("aktivierter Output-Morphismus", "Help-Prägarbensektion", "natürliche Transformation"), "Stage 39", "console-io-json", "Activated console/help/wrapping/utility morphisms for center-level IO helpers."),
+    )
+
+
+def _stage39_stage_steps() -> tuple[StageArchitectureStep, ...]:
+    return (
+        StageArchitectureStep("Stage 39", "Aktivierte Console-/Help-/Utility-Morphismen", ("Stage-38 arithmetic activation existed but center-level console/help/wrapping/utility helpers still owned their own algorithms",), ("console_io.py", "console-io-json", "CenterConsoleIOCompatibilitySquare", "ActivatedConsoleIOLaw"), "OutputRenderingCapsule + InputPromptCapsule", "Dritter echter Aktivierungsschritt: retaHilfe/retaPromptHilfe/getTextWrapThings/cliout/x/alxp/chunks/unique_everseen/DefaultOrderedDict wandern aus center.py in ConsoleIOMorphismBundle; center.py bleibt Legacy-Fassade"),
+    )
+
+
+def _stage40_capsules() -> tuple[ArchitectureCapsuleSpec, ...]:
+    result = []
+    for capsule in _stage39_capsules():
+        if capsule.name == "InputPromptCapsule":
+            result.append(ArchitectureCapsuleSpec(
+                name=capsule.name,
+                layer=capsule.layer,
+                contains=tuple(dict.fromkeys(tuple(capsule.contains) + ("WordCompletionMorphismBundle", "CompletionCandidateSection", "CursorPrefixOpenSet"))),
+                code_owners=tuple(dict.fromkeys(tuple(capsule.code_owners) + ("reta_architecture/completion_word.py",))),
+                paradigm_roles=tuple(dict.fromkeys(tuple(capsule.paradigm_roles) + ("aktivierte Word-Completion-Morphismen",))),
+                inbound=tuple(dict.fromkeys(tuple(capsule.inbound) + ("WordCompletionActivationFunctor", "LegacyWordCompleterCompatibilityFunctor"))),
+                outbound=tuple(dict.fromkeys(tuple(capsule.outbound) + ("word-completion-json", "WordCompletionValidationFunctor"))),
+                stage_span="Stages 4, 6-12, 37-40",
+                description=capsule.description + " Stage 40 aktiviert word_completerAlx.WordCompleter als WordCompletionMorphismBundle.",
+            ))
+        else:
+            result.append(capsule)
+    return tuple(result)
+
+
+def _stage40_containment() -> tuple[CapsuleContainmentSpec, ...]:
+    return (
+        CapsuleContainmentSpec("InputPromptCapsule", "WordCompletionMorphismBundle", "Stage 40 moves word_completerAlx.WordCompleter matching into an activated architecture morphism bundle."),
+    )
+
+
+def _stage40_flows() -> tuple[ArchitectureFlowSpec, ...]:
+    return (
+        _flow("CategoricalMetaCapsule", "InputPromptCapsule", "activate planned word-completion migration unit", "WordCompletionActivationFunctor", "reta_architecture/completion_word.py", "Stage 40 performs the fourth controlled activation from the Stage-36 plan."),
+        _flow("CompatibilityCapsule", "InputPromptCapsule", "delegate legacy word_completerAlx WordCompleter to architecture", "LegacyWordCompleterCompatibilityFunctor", "libs/word_completerAlx.py", "word_completerAlx.py keeps the old WordCompleter name but no longer owns matching logic."),
+        _flow("InputPromptCapsule", "InputPromptCapsule", "produce prompt completion candidate sections", "WordCompletionPromptFunctor", "reta_architecture/completion_word.py", "Stage 40 composes document prefix open sets with local word sections."),
+        _flow("InputPromptCapsule", "CategoricalMetaCapsule", "validate activated word-completion morphism", "WordCompletionValidationFunctor", "reta_architecture/architecture_validation.py", "Stage 40 adds direct validation for legacy and architecture completion results."),
+    )
+
+
+def _stage40_legacy_mappings() -> tuple[RetaPartMappingSpec, ...]:
+    return (
+        RetaPartMappingSpec("libs/word_completerAlx.py", "legacy prompt WordCompleter implementation: word source resolution, cursor-prefix restriction, prefix/middle matching and Completion yielding", "InputPromptCapsule", ("reta_architecture/completion_word.py", "libs/word_completerAlx.py"), ("Topologie", "Morphism", "Prägarbe", "Functor", "natural transformation"), "Stage 40", "word-completion-json", "Word-completion matching is now architecture-owned; word_completerAlx.py remains a compatibility facade."),
+        RetaPartMappingSpec("reta_architecture/completion_word.py", "not present before Stage 40", "InputPromptCapsule", ("WordCompletionMorphismBundle", "ArchitectureWordCompleter"), ("aktivierter Prompt-Morphismus", "Cursor-Open-Set", "Completion-Prägarbensektion", "natürliche Transformation"), "Stage 40", "word-completion-json", "Activated word-completion morphisms for prompt_toolkit completion matching."),
+    )
+
+
+def _stage40_stage_steps() -> tuple[StageArchitectureStep, ...]:
+    return (
+        StageArchitectureStep("Stage 40", "Aktivierte Word-Completion-Morphismen", ("Stage-39 console/io activation existed but word_completerAlx still owned its matching algorithm",), ("completion_word.py", "word-completion-json", "WordCompleterCompatibilitySquare", "ActivatedWordCompletionLaw"), "InputPromptCapsule", "Vierter echter Aktivierungsschritt: WordCompleter wandert aus word_completerAlx.py in WordCompletionMorphismBundle; word_completerAlx.py bleibt Legacy-Fassade"),
+    )
+
+
+
+def _stage41_capsules() -> tuple[ArchitectureCapsuleSpec, ...]:
+    result = []
+    for capsule in _stage40_capsules():
+        if capsule.name == "InputPromptCapsule":
+            result.append(ArchitectureCapsuleSpec(
+                name=capsule.name,
+                layer=capsule.layer,
+                contains=tuple(dict.fromkeys(tuple(capsule.contains) + ("NestedCompletionMorphismBundle", "NestedCompletionOpenSet", "NestedOptionSection", "NestedCompletionCandidateSection"))),
+                code_owners=tuple(dict.fromkeys(tuple(capsule.code_owners) + ("reta_architecture/completion_nested.py",))),
+                paradigm_roles=tuple(dict.fromkeys(tuple(capsule.paradigm_roles) + ("aktivierte hierarchische Prompt-Completion-Morphismen",))),
+                inbound=tuple(dict.fromkeys(tuple(capsule.inbound) + ("NestedCompletionActivationFunctor", "LegacyNestedCompleterCompatibilityFunctor"))),
+                outbound=tuple(dict.fromkeys(tuple(capsule.outbound) + ("nested-completion-json", "NestedCompletionValidationFunctor"))),
+                stage_span="Stages 4, 6-12, 37-41",
+                description=capsule.description + " Stage 41 aktiviert nestedAlx.NestedCompleter als NestedCompletionMorphismBundle.",
+            ))
+        else:
+            result.append(capsule)
+    return tuple(result)
+
+
+def _stage41_containment() -> tuple[CapsuleContainmentSpec, ...]:
+    return (
+        CapsuleContainmentSpec("InputPromptCapsule", "NestedCompletionMorphismBundle", "Stage 41 moves nestedAlx.NestedCompleter hierarchical prompt completion into an activated architecture morphism bundle."),
+    )
+
+
+def _stage41_flows() -> tuple[ArchitectureFlowSpec, ...]:
+    return (
+        _flow("CategoricalMetaCapsule", "InputPromptCapsule", "activate planned nested-completion migration unit", "NestedCompletionActivationFunctor", "reta_architecture/completion_nested.py", "Stage 41 performs the fifth controlled activation from the Stage-36 plan."),
+        _flow("CompatibilityCapsule", "InputPromptCapsule", "delegate legacy nestedAlx NestedCompleter to architecture", "LegacyNestedCompleterCompatibilityFunctor", "libs/nestedAlx.py", "nestedAlx.py keeps the old NestedCompleter and ComplSitua names but no longer owns hierarchical completion logic."),
+        _flow("InputPromptCapsule", "InputPromptCapsule", "produce hierarchical prompt completion candidate sections", "NestedCompletionPromptFunctor", "reta_architecture/completion_nested.py", "Stage 41 composes prompt situations, runtime vocabulary and equality/comma value sections."),
+        _flow("InputPromptCapsule", "CategoricalMetaCapsule", "validate activated nested-completion morphism", "NestedCompletionValidationFunctor", "reta_architecture/architecture_validation.py", "Stage 41 adds direct validation for legacy and architecture nested-completion routes."),
+    )
+
+
+def _stage41_legacy_mappings() -> tuple[RetaPartMappingSpec, ...]:
+    return (
+        RetaPartMappingSpec("libs/nestedAlx.py", "legacy hierarchical prompt-completion implementation: situation enum, sub-completer selection, equality/comma value expansion and prompt_toolkit completion yielding", "InputPromptCapsule", ("reta_architecture/completion_nested.py", "libs/nestedAlx.py"), ("Topologie", "Morphism", "universelle Eigenschaft", "Prägarbe", "Functor", "natural transformation"), "Stage 41", "nested-completion-json", "Nested prompt completion is now architecture-owned; nestedAlx.py remains a compatibility facade."),
+        RetaPartMappingSpec("reta_architecture/completion_nested.py", "not present before Stage 41", "InputPromptCapsule", ("NestedCompletionMorphismBundle", "ArchitectureNestedCompleter", "ComplSitua"), ("aktivierter Prompt-Morphismus", "Completion-Open-Set", "Completion-Prägarbensektion", "natürliche Transformation"), "Stage 41", "nested-completion-json", "Activated hierarchical completion morphisms for prompt_toolkit nested completion."),
+    )
+
+
+def _stage41_stage_steps() -> tuple[StageArchitectureStep, ...]:
+    return (
+        StageArchitectureStep("Stage 41", "Aktivierte Nested-Completion-Morphismen", ("Stage-40 word completion was activated but nestedAlx still owned hierarchical completion transitions",), ("completion_nested.py", "nested-completion-json", "NestedCompleterCompatibilitySquare", "ActivatedNestedCompletionLaw"), "InputPromptCapsule", "Fünfter echter Aktivierungsschritt: NestedCompleter wandert aus nestedAlx.py in NestedCompletionMorphismBundle; nestedAlx.py bleibt Legacy-Fassade"),
+    )
+
 def bootstrap_architecture_map() -> ArchitectureMapBundle:
     """Return the current staged total architecture and capsule map."""
 
     return ArchitectureMapBundle(
-        capsules=_capsules(),
-        containment=_containment(),
-        flows=_flows(),
-        legacy_mappings=_legacy_mappings(),
-        stage_steps=_stage_steps(),
+        capsules=_stage41_capsules(),
+        containment=_containment() + _stage32_containment() + _stage33_containment() + _stage34_containment() + _stage35_containment() + _stage36_containment() + _stage37_containment() + _stage38_containment() + _stage39_containment() + _stage40_containment() + _stage41_containment(),
+        flows=_flows() + _stage32_flows() + _stage33_flows() + _stage34_flows() + _stage35_flows() + _stage36_flows() + _stage37_flows() + _stage38_flows() + _stage39_flows() + _stage40_flows() + _stage41_flows(),
+        legacy_mappings=_legacy_mappings() + _stage32_legacy_mappings() + _stage33_legacy_mappings() + _stage34_legacy_mappings() + _stage35_legacy_mappings() + _stage36_legacy_mappings() + _stage37_legacy_mappings() + _stage38_legacy_mappings() + _stage39_legacy_mappings() + _stage40_legacy_mappings() + _stage41_legacy_mappings(),
+        stage_steps=_stage_steps() + _stage32_stage_steps() + _stage33_stage_steps() + _stage34_stage_steps() + _stage35_stage_steps() + _stage36_stage_steps() + _stage37_stage_steps() + _stage38_stage_steps() + _stage39_stage_steps() + _stage40_stage_steps() + _stage41_stage_steps(),
         mermaid_diagram=_MERMAID_DIAGRAM,
         text_diagram=_TEXT_DIAGRAM,
         markdown_audit=_markdown_audit(),

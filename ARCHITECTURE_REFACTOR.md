@@ -1,3 +1,7 @@
+# Stage 39 – Activated Console/Help/Utility Morphisms
+
+Stage 39 moves the center-level console/help/wrapping/debug/utility helper cluster into `reta_architecture/console_io.py`.  `libs/center.py` remains the compatibility facade, but `ConsoleIOMorphismBundle` is now the architecture owner.  The activation adds `ActivatedConsoleIOCategory`, console-IO functors, natural transformations, compatibility diagrams and `ActivatedConsoleIOLaw`.
+
 # Reta Topology / Morphisms / Universal Properties / Sheaves / Presheaves Refactor
 
 This repository was refactored so that reta no longer hides the intended
@@ -1994,3 +1998,294 @@ python -B -S reta_architecture_probe_py.py architecture-witnesses-md
 ```
 
 No CLI/runtime behaviour is intended to change in Stage 30.
+
+## Stage 31 – Executable validation and coherence matrix
+
+Stage 31 adds two meta-level architecture layers:
+
+- `reta_architecture/architecture_validation.py`
+- `reta_architecture/architecture_coherence.py`
+
+Stage 27 named categories, functors and natural transformations. Stage 28 arranged them as a capsule map. Stage 29 turned the important paths into commutative diagrams and laws. Stage 30 tied those contracts to repository witnesses. Stage 31 now checks that these layers remain mutually coherent.
+
+New probes:
+
+```bash
+python -B -S reta_architecture_probe_py.py architecture-validation-json
+python -B -S reta_architecture_probe_py.py architecture-validation-md
+python -B -S reta_architecture_probe_py.py architecture-coherence-json
+python -B -S reta_architecture_probe_py.py architecture-coherence-md
+```
+
+The Stage-31 rule for later refactors is:
+
+```text
+Do not move semantics across capsule boundaries unless the affected category,
+functor/natural transformation, diagram, law and witness remain coherent.
+```
+
+No CLI/runtime behaviour is intended to change in Stage 31.
+
+## Stage 32 – Architecture traces and boundaries
+
+Stage 32 adds two metadata-only navigation layers over the Stage-31 validation/coherence stack:
+
+```text
+ArchitectureTraceBundle
+ArchitectureBoundariesBundle
+```
+
+The trace layer maps concrete reta components through capsules, categories, functors, natural transformations, diagrams, laws, witnesses and checks.
+
+The boundary layer maps Python modules to architecture capsules and exposes import edges across capsule boundaries.
+
+New probes:
+
+```bash
+python -B -S reta_architecture_probe_py.py architecture-traces-json
+python -B -S reta_architecture_probe_py.py architecture-traces-md
+python -B -S reta_architecture_probe_py.py architecture-boundaries-json
+python -B -S reta_architecture_probe_py.py architecture-boundaries-md
+```
+
+## Stage 33 – Impact-Routen und Migration-Gates
+
+Stage 33 ergänzt die Stage-32-Trace-/Boundary-Architektur um `ArchitectureImpactBundle`.
+
+Die neue Schicht projiziert alte und neue reta-Komponenten auf betroffene Kapseln, Kategorien, Funktoren, natürliche Transformationen, kommutierende Diagramme, Refactor-Gesetze, Witnesses und Regression-Gates. Migrationen werden nicht ausgeführt, sondern als `MigrationCandidateSpec` mit Gates sichtbar gemacht.
+
+Neue Probes:
+
+```bash
+python -B -S reta_architecture_probe_py.py architecture-impact-json
+python -B -S reta_architecture_probe_py.py architecture-impact-md
+```
+
+## Stage 34 – Guarded migration plan
+
+Stage 34 ergänzt die Stage-33-Impact-Schicht um `ArchitectureMigrationBundle`.
+
+Stage 33 konnte sagen, welche alte oder neue reta-Komponente welche Kapseln, Kategorien, Funktoren, natürlichen Transformationen, Diagramme, Gesetze und Gates berührt.  Stage 34 ordnet diese Kandidaten jetzt in kapselweise Migrationswellen und konkrete Gate-Bindings ein.
+
+Neue Datei:
+
+```text
+reta_architecture/architecture_migration.py
+```
+
+Neue Probes:
+
+```bash
+python -B -S reta_architecture_probe_py.py architecture-migration-json
+python -B -S reta_architecture_probe_py.py architecture-migration-md
+```
+
+Die neue Stage-34-Regel lautet:
+
+```text
+Keine spätere Legacy-Extraktion ohne MigrationWaveSpec,
+MigrationStepSpec, MigrationGateBindingSpec, MigrationInvariantSpec,
+kommutierende Diagramme, natürliche Transformationen und Regression-Gates.
+```
+
+No CLI/runtime behaviour is intended to change in Stage 34.
+
+## Stage 34 – Migration-Plan und Gate-Binding
+
+Stage 34 baut auf der Stage-33-Impact-Schicht auf. Stage 33 konnte zeigen, welche alten reta-Komponenten welche Kapseln, Kategorien, Funktoren, natürlichen Transformationen, Diagramme und Gates berühren. Stage 34 macht daraus einen geordneten, aber noch nicht ausgeführten Migrationsplan.
+
+Neu ist `reta_architecture/architecture_migration.py` mit `ArchitectureMigrationBundle`. Dieses Bündel enthält Migrationswellen, Migrationsschritte, Gate-Bindings, Welleninvarianten und eine eigene Validierung.
+
+Mathematisch wird die neue Schicht so gelesen:
+
+```text
+ArchitectureImpactCategory
+  --ImpactToMigrationPlanFunctor-->
+ArchitectureMigrationCategory
+```
+
+Dazu kommen:
+
+```text
+ImpactGateBindingFunctor
+MigrationWaveOrderingFunctor
+MigrationOrderingCoherenceFunctor
+MigrationGateCoherenceFunctor
+ImpactGateMigrationTransformation
+MigrationPlanCoherenceTransformation
+ImpactMigrationPlanningSquare
+MigrationGateCoherenceSquare
+ArchitectureMigrationOrderingLaw
+```
+
+Stage 34 verändert kein beobachtbares CLI-, Prompt-, Tabellen- oder Output-Verhalten. Der Zweck ist, spätere Extraktionen aus Legacy-Flächen nur noch über sichtbare Wellen, Schritte, Gates und natürliche Transformationen zu planen.
+
+
+## Stage 35 – Rehearsal- und Readiness-Schicht
+
+Stage 35 ergänzt über dem Stage-34-Migrationsplan eine Trockenlauf-Schicht. Migrationswellen werden als topologische Rehearsal-Open-Sets gelesen, Migrationsschritte als Refactor-Morphismen, Gate-Bindings als lokale Prüfsektionen und Wellen-Covers als globale Readiness-Garben.
+
+Neu ist `reta_architecture/architecture_rehearsal.py` mit `ArchitectureRehearsalBundle`. Die Schicht führt `ArchitectureRehearsalCategory`, Rehearsal-Funktoren und die natürlichen Transformationen `MigrationRehearsalNaturalityTransformation` sowie `RehearsalReadinessValidationTransformation` ein. Stage 35 verändert kein fachliches CLI-, Prompt-, Tabellen- oder Output-Verhalten.
+
+## Stage 36 – Activation / Commit / Rollback Layer
+
+Stage 36 adds `reta_architecture/architecture_activation.py` and the
+`ArchitectureActivationBundle`.
+
+It lifts Stage-35 rehearsal/readiness moves into controlled activation windows,
+activation units, activation gates, rollback sections and activation
+transactions. The stage is metadata-only: no CLI, prompt, table, CSV or output
+behavior is intentionally changed.
+
+New probe commands:
+
+```bash
+python -B -S reta_architecture_probe_py.py architecture-activation-json
+python -B -S reta_architecture_probe_py.py architecture-activation-md
+```
+
+The new categorical additions are:
+
+```text
+ArchitectureActivationCategory
+RehearsalActivationFunctor
+GateActivationFunctor
+ActivationTransactionFunctor
+ActivationRollbackFunctor
+ActivationValidationFunctor
+ActivationCoherenceFunctor
+RehearsalActivationNaturalityTransformation
+ActivationRollbackValidationTransformation
+```
+
+New contracts:
+
+```text
+RehearsalActivationSquare
+ActivationRollbackValidationSquare
+ArchitectureActivationCommitLaw
+```
+
+## Stage 37 – Activated Row-Range Morphisms
+
+Stage 37 performs the first small real activation after the Stage-36 activation
+plan. Row-range parsing moves from `libs/center.py` into
+`reta_architecture/row_ranges.py`. The old `center` names remain as wrappers,
+so legacy imports still work while the architecture now owns the morphism from
+row-range text to row-index sets.
+
+New probe:
+
+```bash
+python -B -S reta_architecture_probe_py.py row-ranges-json
+```
+
+## Stage 38 – Activated Arithmetic Morphisms
+
+Stage 38 performs the second small real activation after the Stage-36 activation
+plan and the Stage-37 row-range activation.  The center-level arithmetic helpers
+that historically lived directly in `libs/center.py` now live in
+`reta_architecture/arithmetic.py` as `ArithmeticMorphismBundle`.
+
+The old names remain compatible:
+
+```text
+multiples
+teiler
+primfaktoren
+primRepeat
+primRepeat2
+invert_dict_B
+textHatZiffer
+moduloA
+```
+
+but `center.py` now delegates them through `ARITHMETIC_MORPHISMS`.
+
+Mathematically, Stage 38 introduces `ActivatedArithmeticCategory`,
+`ArithmeticActivationFunctor`, `CenterArithmeticCompatibilityFunctor`,
+`ArithmeticRowRangeGluingFunctor`, `ArithmeticValidationFunctor`,
+`CenterArithmeticToArchitectureTransformation`,
+`ArithmeticRowRangeGluingTransformation`, `CenterArithmeticCompatibilitySquare`,
+`ArithmeticRowRangeGluingSquare` and `ActivatedArithmeticLaw`.
+
+New probe:
+
+```bash
+python -B -S reta_architecture_probe_py.py arithmetic-json
+```
+
+## Stage 40 – Activated Word-Completion Morphisms
+
+Stage 40 moves the concrete `WordCompleter` implementation from
+`libs/word_completerAlx.py` into `reta_architecture/completion_word.py`.
+The legacy module keeps the old `WordCompleter` name as a facade.  The new
+architecture owner is `WordCompletionMorphismBundle` in the `InputPromptCapsule`.
+
+Mathematically, word lists are local completion sections, the cursor prefix is a
+prompt-open-set restriction, matching is a morphism, and the legacy-to-architecture
+route is protected by `WordCompleterToArchitectureTransformation`.
+
+## Stage 41 – Activated nested prompt completion
+
+Stage 41 moves the hierarchical prompt-completion state machine out of `libs/nestedAlx.py` into `reta_architecture/completion_nested.py`.
+
+```text
+libs/nestedAlx.py
+  -> compatibility facade
+
+reta_architecture/completion_nested.py
+  -> ArchitectureNestedCompleter
+  -> NestedCompletionMorphismBundle
+```
+
+The mathematical role is:
+
+```text
+Prompt document section
+  -> NestedCompletionOpenSet
+  -> NestedOptionSection
+  -> NestedCompletionCandidateSection
+```
+
+This adds:
+
+```text
+ActivatedNestedCompletionCategory
+NestedCompletionActivationFunctor
+LegacyNestedCompleterCompatibilityFunctor
+NestedCompleterToArchitectureTransformation
+NestedCompleterCompatibilitySquare
+ActivatedNestedCompletionLaw
+```
+
+Probe:
+
+```bash
+python -B -S reta_architecture_probe_py.py nested-completion-json
+```
+
+## Stage 41 – Activated Nested Completion Morphisms
+
+Stage 41 continues the real activation sequence.  After Stage 40 moved the plain
+word completion matcher into `reta_architecture/completion_word.py`, Stage 41
+moves the hierarchical prompt-completion state machine from `libs/nestedAlx.py`
+into `reta_architecture/completion_nested.py`.
+
+```text
+libs/nestedAlx.py
+  → reta_architecture/completion_nested.py
+  → NestedCompletionMorphismBundle
+```
+
+The old module remains a compatibility facade for:
+
+```python
+from nestedAlx import ComplSitua, NestedCompleter
+```
+
+Mathematically, the current prompt document selects a completion-open-set; the
+nested-completer transition functions are morphisms between completion
+situations; the option dictionaries are local completion sections; equality and
+comma value expansion glue runtime vocabulary with i18n value sections; and the
+legacy/new routes are tied by `NestedCompleterToArchitectureTransformation`.

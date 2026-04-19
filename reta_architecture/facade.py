@@ -5,6 +5,11 @@ from pathlib import Path
 from typing import Optional
 
 from .input_semantics import InputBundle
+from .row_ranges import RowRangeMorphismBundle, bootstrap_row_range_morphisms
+from .arithmetic import ArithmeticMorphismBundle, bootstrap_arithmetic_morphisms
+from .console_io import ConsoleIOMorphismBundle, bootstrap_console_io_morphisms
+from .completion_word import WordCompletionMorphismBundle, bootstrap_word_completion_morphisms
+from .completion_nested import NestedCompletionMorphismBundle, bootstrap_nested_completion_morphisms
 from .column_selection import ColumnSelectionBundle, bootstrap_column_selection
 from .output_semantics import RetaOutputSemantics, bootstrap_output_semantics
 from .output_syntax import OutputSyntaxBundle, bootstrap_output_syntax
@@ -29,6 +34,17 @@ from .category_theory import CategoryTheoryBundle, bootstrap_category_theory
 from .architecture_map import ArchitectureMapBundle, bootstrap_architecture_map
 from .architecture_contracts import ArchitectureContractsBundle, bootstrap_architecture_contracts
 from .architecture_witnesses import ArchitectureWitnessBundle, bootstrap_architecture_witnesses
+from .architecture_validation import ArchitectureValidationBundle, bootstrap_architecture_validation
+from .architecture_coherence import ArchitectureCoherenceBundle, bootstrap_architecture_coherence
+from .architecture_traces import ArchitectureTraceBundle, bootstrap_architecture_traces
+from .architecture_boundaries import ArchitectureBoundariesBundle, bootstrap_architecture_boundaries
+from .architecture_impact import ArchitectureImpactBundle, bootstrap_architecture_impact
+from .architecture_migration import ArchitectureMigrationBundle, bootstrap_architecture_migration
+from .architecture_rehearsal import ArchitectureRehearsalBundle, bootstrap_architecture_rehearsal
+from .architecture_activation import ArchitectureActivationBundle, bootstrap_architecture_activation
+
+
+_ARCHITECTURE_BOOTSTRAP_CACHE: dict[Path, "RetaArchitecture"] = {}
 
 
 @dataclass
@@ -37,6 +53,11 @@ class RetaArchitecture:
     schema: RetaContextSchema
     topology: RetaContextTopology
     inputs: InputBundle
+    row_ranges: RowRangeMorphismBundle
+    arithmetic: ArithmeticMorphismBundle
+    console_io: ConsoleIOMorphismBundle
+    word_completion: WordCompletionMorphismBundle
+    nested_completion: NestedCompletionMorphismBundle
     output_syntax: OutputSyntaxBundle
     output_semantics: RetaOutputSemantics
     presheaves: PresheafBundle
@@ -47,10 +68,19 @@ class RetaArchitecture:
     architecture_map: ArchitectureMapBundle
     architecture_contracts: ArchitectureContractsBundle
     architecture_witnesses: ArchitectureWitnessBundle
+    architecture_validation: ArchitectureValidationBundle
+    architecture_coherence: ArchitectureCoherenceBundle
+    architecture_traces: ArchitectureTraceBundle
+    architecture_boundaries: ArchitectureBoundariesBundle
+    architecture_impact: ArchitectureImpactBundle
+    architecture_migration: ArchitectureMigrationBundle
+    architecture_rehearsal: ArchitectureRehearsalBundle
+    architecture_activation: ArchitectureActivationBundle
     column_selection: ColumnSelectionBundle
     parameter_runtime: ParameterRuntimeBundle
     program_workflow: ProgramWorkflowBundle
     table_preparation: TablePreparationBundle
+    row_filtering: object
     table_wrapping: TableWrappingBundle
     table_state: TableStateBundle
     number_theory: NumberTheoryBundle
@@ -62,10 +92,12 @@ class RetaArchitecture:
     combi_join: KombiJoinBundle
 
     @classmethod
-    def bootstrap(cls, repo_root: Optional[Path] = None) -> "RetaArchitecture":
+    def bootstrap(cls, repo_root: Optional[Path] = None, use_cache: bool = True) -> "RetaArchitecture":
         if repo_root is None:
             repo_root = Path(__file__).resolve().parent.parent
         repo_root = repo_root.resolve()
+        if use_cache and repo_root in _ARCHITECTURE_BOOTSTRAP_CACHE:
+            return _ARCHITECTURE_BOOTSTRAP_CACHE[repo_root]
 
         import i18n.words as words  # compatibility facade / module split metadata
         import i18n.words_context as words_context
@@ -88,6 +120,11 @@ class RetaArchitecture:
 
         topology = RetaContextTopology.from_schema(schema)
         inputs = InputBundle.from_schema(schema, i18n=words_runtime)
+        row_ranges = bootstrap_row_range_morphisms(inputs.row_ranges)
+        arithmetic = bootstrap_arithmetic_morphisms(row_ranges, classify=words_runtime.classify)
+        console_io = bootstrap_console_io_morphisms(repo_root)
+        word_completion = bootstrap_word_completion_morphisms()
+        nested_completion = bootstrap_nested_completion_morphisms(i18n=words_runtime, row_range_morphisms=row_ranges)
         output_syntax = bootstrap_output_syntax()
         output_semantics = bootstrap_output_semantics(repo_root)
         presheaves = PresheafBundle.discover(repo_root)
@@ -103,9 +140,76 @@ class RetaArchitecture:
             architecture_map=architecture_map,
             architecture_contracts=architecture_contracts,
         )
+        architecture_coherence = bootstrap_architecture_coherence(
+            category_theory=category_theory,
+            architecture_map=architecture_map,
+            architecture_contracts=architecture_contracts,
+            architecture_witnesses=architecture_witnesses,
+        )
+        architecture_traces = bootstrap_architecture_traces(
+            repo_root=repo_root,
+            category_theory=category_theory,
+            architecture_map=architecture_map,
+            architecture_contracts=architecture_contracts,
+            architecture_witnesses=architecture_witnesses,
+            architecture_coherence=architecture_coherence,
+        )
+        architecture_boundaries = bootstrap_architecture_boundaries(
+            repo_root=repo_root,
+            architecture_map=architecture_map,
+            architecture_coherence=architecture_coherence,
+        )
+        architecture_impact = bootstrap_architecture_impact(
+            repo_root=repo_root,
+            category_theory=category_theory,
+            architecture_map=architecture_map,
+            architecture_contracts=architecture_contracts,
+            architecture_witnesses=architecture_witnesses,
+            architecture_coherence=architecture_coherence,
+            architecture_traces=architecture_traces,
+            architecture_boundaries=architecture_boundaries,
+        )
+        architecture_migration = bootstrap_architecture_migration(
+            category_theory=category_theory,
+            architecture_map=architecture_map,
+            architecture_contracts=architecture_contracts,
+            architecture_impact=architecture_impact,
+        )
+        architecture_rehearsal = bootstrap_architecture_rehearsal(
+            category_theory=category_theory,
+            architecture_contracts=architecture_contracts,
+            architecture_impact=architecture_impact,
+            architecture_migration=architecture_migration,
+        )
+        architecture_activation = bootstrap_architecture_activation(
+            category_theory=category_theory,
+            architecture_contracts=architecture_contracts,
+            architecture_migration=architecture_migration,
+            architecture_rehearsal=architecture_rehearsal,
+        )
+        architecture_validation = bootstrap_architecture_validation(
+            repo_root=repo_root,
+            category_theory=category_theory,
+            architecture_map=architecture_map,
+            architecture_contracts=architecture_contracts,
+            architecture_witnesses=architecture_witnesses,
+            architecture_traces=architecture_traces,
+            architecture_boundaries=architecture_boundaries,
+            architecture_impact=architecture_impact,
+            architecture_migration=architecture_migration,
+            architecture_rehearsal=architecture_rehearsal,
+            architecture_activation=architecture_activation,
+            row_ranges=row_ranges,
+            arithmetic=arithmetic,
+            console_io=console_io,
+            word_completion=word_completion,
+            nested_completion=nested_completion,
+        )
         column_selection = bootstrap_column_selection()
         parameter_runtime = bootstrap_parameter_runtime()
         table_preparation = bootstrap_table_preparation()
+        from .row_filtering import bootstrap_row_filtering
+        row_filtering = bootstrap_row_filtering()
         table_wrapping = bootstrap_table_wrapping()
         table_state = bootstrap_table_state()
         number_theory = bootstrap_number_theory()
@@ -123,11 +227,16 @@ class RetaArchitecture:
             csv_file_names=words_runtime.csvFileNames,
             gebrochen_spalten_maximum_plus1=words_runtime.gebrochenSpaltenMaximumPlus1,
         )
-        return cls(
+        architecture = cls(
             repo_root=repo_root,
             schema=schema,
             topology=topology,
             inputs=inputs,
+            row_ranges=row_ranges,
+            arithmetic=arithmetic,
+            console_io=console_io,
+            word_completion=word_completion,
+            nested_completion=nested_completion,
             output_syntax=output_syntax,
             output_semantics=output_semantics,
             presheaves=presheaves,
@@ -138,10 +247,19 @@ class RetaArchitecture:
             architecture_map=architecture_map,
             architecture_contracts=architecture_contracts,
             architecture_witnesses=architecture_witnesses,
+            architecture_validation=architecture_validation,
+            architecture_coherence=architecture_coherence,
+            architecture_traces=architecture_traces,
+            architecture_boundaries=architecture_boundaries,
+            architecture_impact=architecture_impact,
+            architecture_migration=architecture_migration,
+            architecture_rehearsal=architecture_rehearsal,
+            architecture_activation=architecture_activation,
             column_selection=column_selection,
             parameter_runtime=parameter_runtime,
             program_workflow=program_workflow,
             table_preparation=table_preparation,
+            row_filtering=row_filtering,
             table_wrapping=table_wrapping,
             table_state=table_state,
             number_theory=number_theory,
@@ -152,6 +270,9 @@ class RetaArchitecture:
             concat_csv=concat_csv,
             combi_join=combi_join,
         )
+        if use_cache:
+            _ARCHITECTURE_BOOTSTRAP_CACHE[repo_root] = architecture
+        return architecture
 
     def sync_program_semantics(self, para_dict, data_dicts) -> None:
         self.sheaves.parameter_semantics.sync_program_semantics(para_dict, data_dicts)
@@ -168,6 +289,34 @@ class RetaArchitecture:
     def update_prompt_state(self, raw_text: str, tokens, context: Optional[ContextSelection] = None) -> None:
         self.presheaves.prompt_state.update(raw_text, tokens, context=context)
 
+
+
+    def bootstrap_row_ranges(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.row_ranges
+        return bootstrap_row_range_morphisms(self.inputs.row_ranges)
+
+    def bootstrap_arithmetic(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.arithmetic
+        import i18n.words_runtime as words_runtime
+        return bootstrap_arithmetic_morphisms(self.bootstrap_row_ranges(force_rebuild=force_rebuild), classify=words_runtime.classify)
+
+    def bootstrap_console_io(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.console_io
+        return bootstrap_console_io_morphisms(self.repo_root)
+
+    def bootstrap_word_completion(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.word_completion
+        return bootstrap_word_completion_morphisms()
+
+    def bootstrap_nested_completion(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.nested_completion
+        import i18n.words_runtime as words_runtime
+        return bootstrap_nested_completion_morphisms(i18n=words_runtime, row_range_morphisms=self.bootstrap_row_ranges())
 
     def bootstrap_column_selection(self, ordered_set_factory=None, force_rebuild: bool = False):
         if ordered_set_factory is None and not force_rebuild:
@@ -199,8 +348,9 @@ class RetaArchitecture:
         return bootstrap_table_preparation()
 
     def bootstrap_row_filtering(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.row_filtering
         from .row_filtering import bootstrap_row_filtering
-
         return bootstrap_row_filtering()
 
     def bootstrap_table_state(self, force_rebuild: bool = False):
@@ -281,6 +431,104 @@ class RetaArchitecture:
             category_theory=self.bootstrap_category_theory(),
             architecture_map=self.bootstrap_architecture_map(),
             architecture_contracts=self.bootstrap_architecture_contracts(),
+        )
+
+    def bootstrap_architecture_coherence(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.architecture_coherence
+        return bootstrap_architecture_coherence(
+            category_theory=self.bootstrap_category_theory(),
+            architecture_map=self.bootstrap_architecture_map(),
+            architecture_contracts=self.bootstrap_architecture_contracts(),
+            architecture_witnesses=self.bootstrap_architecture_witnesses(),
+        )
+
+    def bootstrap_architecture_traces(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.architecture_traces
+        return bootstrap_architecture_traces(
+            repo_root=self.repo_root,
+            category_theory=self.bootstrap_category_theory(),
+            architecture_map=self.bootstrap_architecture_map(),
+            architecture_contracts=self.bootstrap_architecture_contracts(),
+            architecture_witnesses=self.bootstrap_architecture_witnesses(),
+            architecture_coherence=self.bootstrap_architecture_coherence(),
+        )
+
+    def bootstrap_architecture_boundaries(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.architecture_boundaries
+        return bootstrap_architecture_boundaries(
+            repo_root=self.repo_root,
+            architecture_map=self.bootstrap_architecture_map(),
+            architecture_coherence=self.bootstrap_architecture_coherence(),
+        )
+
+    def bootstrap_architecture_impact(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.architecture_impact
+        return bootstrap_architecture_impact(
+            repo_root=self.repo_root,
+            category_theory=self.bootstrap_category_theory(),
+            architecture_map=self.bootstrap_architecture_map(),
+            architecture_contracts=self.bootstrap_architecture_contracts(),
+            architecture_witnesses=self.bootstrap_architecture_witnesses(),
+            architecture_coherence=self.bootstrap_architecture_coherence(),
+            architecture_traces=self.bootstrap_architecture_traces(),
+            architecture_boundaries=self.bootstrap_architecture_boundaries(),
+        )
+
+    def bootstrap_architecture_migration(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.architecture_migration
+        return bootstrap_architecture_migration(
+            category_theory=self.bootstrap_category_theory(),
+            architecture_map=self.bootstrap_architecture_map(),
+            architecture_contracts=self.bootstrap_architecture_contracts(),
+            architecture_impact=self.bootstrap_architecture_impact(),
+        )
+
+    def bootstrap_architecture_rehearsal(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.architecture_rehearsal
+        return bootstrap_architecture_rehearsal(
+            category_theory=self.bootstrap_category_theory(),
+            architecture_contracts=self.bootstrap_architecture_contracts(),
+            architecture_impact=self.bootstrap_architecture_impact(),
+            architecture_migration=self.bootstrap_architecture_migration(),
+        )
+
+
+    def bootstrap_architecture_activation(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.architecture_activation
+        return bootstrap_architecture_activation(
+            category_theory=self.bootstrap_category_theory(),
+            architecture_contracts=self.bootstrap_architecture_contracts(),
+            architecture_migration=self.bootstrap_architecture_migration(),
+            architecture_rehearsal=self.bootstrap_architecture_rehearsal(),
+        )
+
+    def bootstrap_architecture_validation(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.architecture_validation
+        return bootstrap_architecture_validation(
+            repo_root=self.repo_root,
+            category_theory=self.bootstrap_category_theory(),
+            architecture_map=self.bootstrap_architecture_map(),
+            architecture_contracts=self.bootstrap_architecture_contracts(),
+            architecture_witnesses=self.bootstrap_architecture_witnesses(),
+            architecture_traces=self.bootstrap_architecture_traces(),
+            architecture_boundaries=self.bootstrap_architecture_boundaries(),
+            architecture_impact=self.bootstrap_architecture_impact(),
+            architecture_migration=self.bootstrap_architecture_migration(),
+            architecture_rehearsal=self.bootstrap_architecture_rehearsal(),
+            architecture_activation=self.bootstrap_architecture_activation(),
+            row_ranges=self.bootstrap_row_ranges(),
+            arithmetic=self.bootstrap_arithmetic(),
+            console_io=self.bootstrap_console_io(),
+            word_completion=self.bootstrap_word_completion(),
+            nested_completion=self.bootstrap_nested_completion(),
         )
 
     def bootstrap_table_generation(self, csv_file_names=None, force_rebuild: bool = False):
@@ -369,6 +617,11 @@ class RetaArchitecture:
             "schema": self.schema.snapshot(),
             "topology": self.topology.snapshot(),
             "inputs": self.inputs.snapshot(),
+            "row_ranges": self.bootstrap_row_ranges().snapshot(),
+            "arithmetic": self.bootstrap_arithmetic().snapshot(),
+            "console_io": self.bootstrap_console_io().snapshot(),
+            "word_completion": self.bootstrap_word_completion().snapshot(),
+            "nested_completion": self.bootstrap_nested_completion().snapshot(),
             "output_syntax": self.bootstrap_output_syntax().snapshot(),
             "column_selection": self.bootstrap_column_selection().snapshot(),
             "parameter_runtime": self.bootstrap_parameter_runtime().snapshot(),
@@ -399,4 +652,12 @@ class RetaArchitecture:
             "architecture_map": self.bootstrap_architecture_map().snapshot(),
             "architecture_contracts": self.bootstrap_architecture_contracts().snapshot(),
             "architecture_witnesses": self.bootstrap_architecture_witnesses().snapshot(),
+            "architecture_validation": self.bootstrap_architecture_validation().snapshot(),
+            "architecture_coherence": self.bootstrap_architecture_coherence().snapshot(),
+            "architecture_traces": self.bootstrap_architecture_traces().snapshot(),
+            "architecture_boundaries": self.bootstrap_architecture_boundaries().snapshot(),
+            "architecture_impact": self.bootstrap_architecture_impact().snapshot(),
+            "architecture_migration": self.bootstrap_architecture_migration().snapshot(),
+            "architecture_rehearsal": self.bootstrap_architecture_rehearsal().snapshot(),
+            "architecture_activation": self.bootstrap_architecture_activation().snapshot(),
         }

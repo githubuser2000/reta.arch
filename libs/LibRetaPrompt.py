@@ -2,6 +2,7 @@ from pathlib import Path
 
 from center import BereichToNumbers2, Primzahlkreuz_pro_contra_strs, i18n, x
 from reta_architecture import (
+    RetaArchitecture,
     PromptModus,
     bootstrap_completion_runtime,
     bootstrap_prompt_language,
@@ -19,20 +20,30 @@ from reta_architecture import (
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+# Build the architecture once and share it across the import-time prompt
+# compatibility bundles.  This keeps the legacy facade source-compatible while
+# avoiding repeated full meta-layer bootstraps after the Stage-31 validation and
+# coherence layers were added.
+_ARCHITECTURE = RetaArchitecture.bootstrap(REPO_ROOT)
+
 promptRuntime = bootstrap_prompt_runtime(
     repo_root=REPO_ROOT,
+    architecture=_ARCHITECTURE,
     i18n=i18n,
 )
 completionRuntime = bootstrap_completion_runtime(
     repo_root=REPO_ROOT,
+    architecture=_ARCHITECTURE,
     i18n=i18n,
 )
 promptLanguage = bootstrap_prompt_language(
     repo_root=REPO_ROOT,
+    architecture=_ARCHITECTURE,
     i18n=i18n,
 )
 promptSession = bootstrap_prompt_session(
     repo_root=REPO_ROOT,
+    architecture=_ARCHITECTURE,
     i18n=i18n,
 )
 

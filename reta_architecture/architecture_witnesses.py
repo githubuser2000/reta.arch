@@ -434,6 +434,8 @@ def _probe_commands_for(diagram_name: str) -> tuple[str, ...]:
         return common + ("python -B -S reta_architecture_probe_py.py table-output-json", "python -m unittest tests.test_command_parity -v")
     if "Legacy" in diagram_name:
         return common + ("python -B -S reta_architecture_probe_py.py package-integrity-json", "python -m unittest tests.test_command_parity -v")
+    if "Validation" in diagram_name:
+        return common + ("python -B -S reta_architecture_probe_py.py architecture-validation-json", "python -B -S reta_architecture_probe_py.py architecture-contracts-json")
     return common + ("python -B -S reta_architecture_probe_py.py architecture-contracts-json", "python -B -S reta_architecture_probe_py.py architecture-map-json")
 
 
@@ -559,7 +561,8 @@ ArchitectureWitnessBundle
 ├─ CapsuleSlices: old reta owner → new capsule → math role → protected contract
 ├─ DiagramWitnesses: Stage-29 commutative diagrams with concrete evidence
 ├─ NaturalityWitnesses: natural transformations tied to diagrams and capsules
-└─ RefactorObligations: laws future stages must preserve
+├─ RefactorObligations: laws future stages must preserve
+└─ Validation handoff: Stage-31 validation consumes this witness matrix
 
 Stage-30 reading:
 Legacy reta surfaces are no longer the architecture source.  They are witnesses

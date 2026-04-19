@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
@@ -23,9 +24,22 @@ REQUIRED_SOURCE_PATHS = (
     "reta_architecture/architecture_map.py",
     "reta_architecture/architecture_contracts.py",
     "reta_architecture/architecture_witnesses.py",
+    "reta_architecture/architecture_validation.py",
+    "reta_architecture/architecture_coherence.py",
+    "reta_architecture/architecture_traces.py",
+    "reta_architecture/architecture_boundaries.py",
+    "reta_architecture/architecture_impact.py",
+    "reta_architecture/architecture_migration.py",
+    "reta_architecture/architecture_rehearsal.py",
+    "reta_architecture/architecture_activation.py",
     "reta_architecture/schema.py",
     "reta_architecture/semantics_builder.py",
     "reta_architecture/input_semantics.py",
+    "reta_architecture/row_ranges.py",
+    "reta_architecture/arithmetic.py",
+    "reta_architecture/console_io.py",
+    "reta_architecture/completion_word.py",
+    "reta_architecture/completion_nested.py",
     "reta_architecture/column_selection.py",
     "reta_architecture/parameter_runtime.py",
     "reta_architecture/program_workflow.py",
@@ -57,6 +71,7 @@ REQUIRED_SOURCE_PATHS = (
     "libs/center.py",
     "libs/LibRetaPrompt.py",
     "libs/nestedAlx.py",
+    "libs/word_completerAlx.py",
     "libs/tableHandling.py",
     "libs/lib4tables.py",
     "libs/lib4tables_concat.py",
@@ -79,11 +94,19 @@ def is_runtime_artifact(path: str | Path) -> bool:
     return path.suffix in IGNORED_SUFFIXES
 
 
+def _iter_all_regular_files(root: Path) -> Iterable[Path]:
+    root = Path(root)
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        dirnames[:] = sorted(dirnames)
+        for filename in sorted(filenames):
+            path = Path(dirpath) / filename
+            if path.is_file():
+                yield path
+
+
 def iter_manifest_files(root: Path) -> Iterable[Path]:
     root = Path(root)
-    for path in sorted(root.rglob("*")):
-        if not path.is_file():
-            continue
+    for path in _iter_all_regular_files(root):
         relative = path.relative_to(root)
         if is_runtime_artifact(relative):
             continue
@@ -108,8 +131,13 @@ class RepoManifest:
         digest = hashlib.sha256()
         files: list[str] = []
         total_bytes = 0
-        for path in iter_manifest_files(root):
-            relative = _normalise_path(path.relative_to(root))
+        runtime_artifact_count = 0
+        for path in _iter_all_regular_files(root):
+            relative_path = path.relative_to(root)
+            if is_runtime_artifact(relative_path):
+                runtime_artifact_count += 1
+                continue
+            relative = _normalise_path(relative_path)
             data = path.read_bytes()
             files.append(relative)
             total_bytes += len(data)
@@ -117,11 +145,6 @@ class RepoManifest:
             digest.update(b"\0")
             digest.update(hashlib.sha256(data).digest())
         file_set = set(files)
-        runtime_artifact_count = sum(
-            1
-            for path in root.rglob("*")
-            if path.is_file() and is_runtime_artifact(path.relative_to(root))
-        )
         csv_line_counts = {
             relative: len((root / relative).read_text(encoding="utf-8", errors="replace").splitlines())
             for relative in sorted(file_set)
