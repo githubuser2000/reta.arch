@@ -42,6 +42,10 @@ from reta_architecture.program_workflow import ProgramWorkflowBundle  # noqa: E4
 from reta_architecture.table_preparation import TablePreparationBundle  # noqa: E402
 from reta_architecture.table_wrapping import TableWrappingBundle  # noqa: E402
 from reta_architecture.table_state import TableStateBundle  # noqa: E402
+from reta_architecture.category_theory import CategoryTheoryBundle  # noqa: E402
+from reta_architecture.architecture_map import ArchitectureMapBundle  # noqa: E402
+from reta_architecture.architecture_contracts import ArchitectureContractsBundle  # noqa: E402
+from reta_architecture.architecture_witnesses import ArchitectureWitnessBundle  # noqa: E402
 from reta_architecture.table_output import TableOutputBundle  # noqa: E402
 from reta_architecture.generated_columns import GeneratedColumnsBundle  # noqa: E402
 from reta_architecture.meta_columns import MetaColumnsBundle  # noqa: E402
@@ -520,6 +524,10 @@ class ArchitectureRefactorRegressionTest(unittest.TestCase):
         self.assertIn("reta_architecture/program_workflow.py", manifest.files)
         self.assertIn("reta_architecture/concat_csv.py", manifest.files)
         self.assertIn("reta_architecture/combi_join.py", manifest.files)
+        self.assertIn("reta_architecture/category_theory.py", manifest.files)
+        self.assertIn("reta_architecture/architecture_map.py", manifest.files)
+        self.assertIn("reta_architecture/architecture_contracts.py", manifest.files)
+        self.assertIn("reta_architecture/architecture_witnesses.py", manifest.files)
 
     def test_parameter_semantics_regression_counts(self):
         program = self._semantic_program()
@@ -637,6 +645,131 @@ class ArchitectureRefactorRegressionTest(unittest.TestCase):
         self.assertIn("class KombiJoin", combi_source)
         self.assertIn("def readKombiCsv", combi_source)
         self.assertIn("def tableJoin", combi_source)
+
+
+    def test_category_theory_layer_is_explicit(self):
+        category_theory = self.architecture.bootstrap_category_theory(force_rebuild=True)
+        snapshot = category_theory.snapshot()
+        self.assertIsInstance(category_theory, CategoryTheoryBundle)
+        self.assertEqual(snapshot["class"], "CategoryTheoryBundle")
+        self.assertIn("category_theory", self.architecture.snapshot())
+        self.assertIn("natural_transformation", snapshot["paradigm"])
+        self.assertGreaterEqual(snapshot["counts"]["categories"], 8)
+        self.assertGreaterEqual(snapshot["counts"]["functors"], 12)
+        self.assertGreaterEqual(snapshot["counts"]["natural_transformations"], 7)
+        category_names = {item["name"] for item in snapshot["categories"]}
+        self.assertIn("OpenRetaContextCategory", category_names)
+        self.assertIn("TableSectionCategory", category_names)
+        self.assertIn("LegacyFacadeCategory", category_names)
+        functor_names = {item["name"] for item in snapshot["functors"]}
+        self.assertIn("RawCommandPresheafFunctor", functor_names)
+        self.assertIn("GeneratedColumnEndofunctorFamily", functor_names)
+        self.assertIn("OutputRenderingFunctorFamily", functor_names)
+        transformation_names = {item["name"] for item in snapshot["natural_transformations"]}
+        self.assertIn("RawToCanonicalParameterTransformation", transformation_names)
+        self.assertIn("PresheafToSheafGluingTransformation", transformation_names)
+        self.assertIn("LegacyToArchitectureTransformation", transformation_names)
+        self.assertIn("TableRuntimeToStateSectionsTransformation", transformation_names)
+        self.assertEqual(snapshot["plan"]["behaviour_change"].split(";")[0], "keine beabsichtigte Laufzeit-/CLI-Verhaltensänderung")
+        source = (REPO_ROOT / "reta_architecture" / "category_theory.py").read_text(encoding="utf-8")
+        self.assertIn("class FunctorSpec", source)
+        self.assertIn("class NaturalTransformationSpec", source)
+        self.assertIn("bootstrap_category_theory", source)
+
+
+    def test_architecture_map_layer_is_explicit(self):
+        architecture_map = self.architecture.bootstrap_architecture_map(force_rebuild=True)
+        snapshot = architecture_map.snapshot()
+        self.assertIsInstance(architecture_map, ArchitectureMapBundle)
+        self.assertEqual(snapshot["class"], "ArchitectureMapBundle")
+        self.assertEqual(snapshot["stage"], 30)
+        self.assertIn("architecture_map", self.architecture.snapshot())
+        self.assertGreaterEqual(snapshot["counts"]["capsules"], 10)
+        self.assertGreaterEqual(snapshot["counts"]["flows"], 10)
+        self.assertGreaterEqual(snapshot["counts"]["legacy_mappings"], 10)
+        self.assertEqual(snapshot["counts"]["stage_steps"], 30)
+        capsule_names = {item["name"] for item in snapshot["capsules"]}
+        self.assertIn("SchemaTopologyCapsule", capsule_names)
+        self.assertIn("TableCoreCapsule", capsule_names)
+        self.assertIn("CategoricalMetaCapsule", capsule_names)
+        legacy_owners = {item["legacy_owner"] for item in snapshot["legacy_mappings"]}
+        self.assertIn("reta.py", legacy_owners)
+        self.assertIn("retaPrompt.py", legacy_owners)
+        self.assertIn("libs/tableHandling.py", legacy_owners)
+        self.assertIn("libs/lib4tables_concat.py", legacy_owners)
+        self.assertIn("flowchart TD", snapshot["diagrams"]["mermaid"])
+        self.assertIn("RetaArchitectureRoot", snapshot["diagrams"]["text"])
+        self.assertEqual(snapshot["markdown_audit"]["markdown_files_in_stage27_package"], 58)
+        self.assertEqual(snapshot["markdown_audit"]["uploaded_tar_markdown_files"], 0)
+        source = (REPO_ROOT / "reta_architecture" / "architecture_map.py").read_text(encoding="utf-8")
+        self.assertIn("ArchitectureWitnessBundle", snapshot["diagrams"]["text"])
+        self.assertIn("class ArchitectureMapBundle", source)
+        self.assertIn("bootstrap_architecture_map", source)
+
+
+    def test_architecture_contract_layer_is_explicit(self):
+        contracts = self.architecture.bootstrap_architecture_contracts(force_rebuild=True)
+        snapshot = contracts.snapshot()
+        self.assertIsInstance(contracts, ArchitectureContractsBundle)
+        self.assertEqual(snapshot["class"], "ArchitectureContractsBundle")
+        self.assertEqual(snapshot["stage"], 29)
+        self.assertIn("architecture_contracts", self.architecture.snapshot())
+        self.assertIn("commutative_diagram", snapshot["paradigm"])
+        self.assertGreaterEqual(snapshot["counts"]["commutative_diagrams"], 8)
+        self.assertGreaterEqual(snapshot["counts"]["capsule_contracts"], 10)
+        self.assertGreaterEqual(snapshot["counts"]["laws"], 9)
+        self.assertEqual(snapshot["validation"]["status"], "passed")
+        diagram_names = {item["name"] for item in snapshot["commutative_diagrams"]}
+        self.assertIn("RawCommandNaturalitySquare", diagram_names)
+        self.assertIn("PresheafSheafGluingSquare", diagram_names)
+        self.assertIn("RenderedOutputParitySquare", diagram_names)
+        contract_names = {item["capsule"] for item in snapshot["capsule_contracts"]}
+        self.assertIn("TableCoreCapsule", contract_names)
+        self.assertIn("CategoricalMetaCapsule", contract_names)
+        law_names = {item["name"] for item in snapshot["laws"]}
+        self.assertIn("LegacyCompatibilityNaturalityLaw", law_names)
+        self.assertIn("SheafGluingUniquenessLaw", law_names)
+        self.assertIn("architecture_contracts.py", snapshot["plan"]["implemented_in_stage_29"][0])
+        self.assertIn("ArchitectureContractsBundle", snapshot["diagrams"]["text"])
+        source = (REPO_ROOT / "reta_architecture" / "architecture_contracts.py").read_text(encoding="utf-8")
+        self.assertIn("class CommutativeDiagramSpec", source)
+        self.assertIn("class CapsuleContractSpec", source)
+        self.assertIn("class RefactorLawSpec", source)
+        self.assertIn("bootstrap_architecture_contracts", source)
+
+
+    def test_architecture_witness_layer_is_explicit(self):
+        witnesses = self.architecture.bootstrap_architecture_witnesses(force_rebuild=True)
+        snapshot = witnesses.snapshot()
+        self.assertIsInstance(witnesses, ArchitectureWitnessBundle)
+        self.assertEqual(snapshot["class"], "ArchitectureWitnessBundle")
+        self.assertEqual(snapshot["stage"], 30)
+        self.assertIn("architecture_witnesses", self.architecture.snapshot())
+        self.assertIn("witness", snapshot["paradigm"])
+        self.assertIn("proof_obligation", snapshot["paradigm"])
+        self.assertGreaterEqual(snapshot["counts"]["capsule_slices"], 10)
+        self.assertGreaterEqual(snapshot["counts"]["diagram_witnesses"], 8)
+        self.assertGreaterEqual(snapshot["counts"]["naturality_witnesses"], 8)
+        self.assertGreaterEqual(snapshot["counts"]["obligations"], 17)
+        self.assertEqual(snapshot["validation"]["status"], "passed")
+        self.assertEqual(snapshot["validation"]["missing_file_like_anchors"], [])
+        slice_names = {item["capsule"] for item in snapshot["capsule_slices"]}
+        self.assertIn("TableCoreCapsule", slice_names)
+        self.assertIn("CategoricalMetaCapsule", slice_names)
+        diagram_names = {item["diagram"] for item in snapshot["diagram_witnesses"]}
+        self.assertIn("RawCommandNaturalitySquare", diagram_names)
+        self.assertIn("LegacyArchitectureCompatibilitySquare", diagram_names)
+        transformation_names = {item["transformation"] for item in snapshot["naturality_witnesses"]}
+        self.assertIn("RawToCanonicalParameterTransformation", transformation_names)
+        self.assertIn("ContractedNaturalityTransformation", transformation_names)
+        self.assertIn("architecture_witnesses.py", snapshot["plan"]["implemented_in_stage_30"][0])
+        self.assertIn("ArchitectureWitnessBundle", snapshot["diagrams"]["text"])
+        source = (REPO_ROOT / "reta_architecture" / "architecture_witnesses.py").read_text(encoding="utf-8")
+        self.assertIn("class ArchitectureWitnessBundle", source)
+        self.assertIn("class AnchorWitnessSpec", source)
+        self.assertIn("class CapsuleSliceSpec", source)
+        self.assertIn("bootstrap_architecture_witnesses", source)
+
 
     def test_known_pair_lookup_still_resolves(self):
         pair = self.architecture.sheaves.parameter_semantics.canonicalize_pair(

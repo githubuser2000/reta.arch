@@ -70,6 +70,13 @@ Aufruf:
   {program_name} sheaves-json
   {program_name} morphisms-json
   {program_name} universal-json
+  {program_name} category-theory-json
+  {program_name} architecture-map-json
+  {program_name} architecture-diagram-md
+  {program_name} architecture-contracts-json
+  {program_name} architecture-contracts-md
+  {program_name} architecture-witnesses-json
+  {program_name} architecture-witnesses-md
 """
 
 
@@ -180,6 +187,60 @@ def main(argv):
         return 0
     if cmd == "universal-json":
         dump(ARCH.snapshot()["universal"])
+        return 0
+    if cmd == "category-theory-json":
+        dump(ARCH.bootstrap_category_theory().snapshot())
+        return 0
+    if cmd == "architecture-map-json":
+        dump(ARCH.bootstrap_architecture_map().snapshot())
+        return 0
+    if cmd == "architecture-contracts-json":
+        dump(ARCH.bootstrap_architecture_contracts().snapshot())
+        return 0
+    if cmd == "architecture-witnesses-json":
+        dump(ARCH.bootstrap_architecture_witnesses().snapshot())
+        return 0
+    if cmd == "architecture-witnesses-md":
+        witnesses = ARCH.bootstrap_architecture_witnesses()
+        print("# Reta Stage-30 Architektur-Witnesses")
+        print()
+        print("## Witness-Baum")
+        print()
+        print("```text")
+        print(witnesses.text_diagram.rstrip())
+        print("```")
+        print()
+        print("## Mermaid")
+        print()
+        print(witnesses.mermaid_diagram.rstrip())
+        return 0
+    if cmd == "architecture-contracts-md":
+        contracts = ARCH.bootstrap_architecture_contracts()
+        print("# Reta Stage-29 Architekturverträge")
+        print()
+        print("## Vertragsbaum")
+        print()
+        print("```text")
+        print(contracts.text_diagram.rstrip())
+        print("```")
+        print()
+        print("## Mermaid")
+        print()
+        print(contracts.mermaid_diagram.rstrip())
+        return 0
+    if cmd == "architecture-diagram-md":
+        architecture_map = ARCH.bootstrap_architecture_map()
+        print("# Reta Stage-30 Gesamtarchitektur")
+        print()
+        print("## Kapselbaum")
+        print()
+        print("```text")
+        print(architecture_map.text_diagram.rstrip())
+        print("```")
+        print()
+        print("## Mermaid")
+        print()
+        print(architecture_map.mermaid_diagram.rstrip())
         return 0
     raise SystemExit(f"Unbekannter Befehl: {cmd}")
 

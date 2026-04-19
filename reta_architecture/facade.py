@@ -25,6 +25,10 @@ from .schema import RetaContextSchema
 from .sheaves import SheafBundle
 from .topology import ContextSelection, RetaContextTopology
 from .universal import UniversalBundle
+from .category_theory import CategoryTheoryBundle, bootstrap_category_theory
+from .architecture_map import ArchitectureMapBundle, bootstrap_architecture_map
+from .architecture_contracts import ArchitectureContractsBundle, bootstrap_architecture_contracts
+from .architecture_witnesses import ArchitectureWitnessBundle, bootstrap_architecture_witnesses
 
 
 @dataclass
@@ -39,6 +43,10 @@ class RetaArchitecture:
     sheaves: SheafBundle
     morphisms: MorphismBundle
     universal: UniversalBundle
+    category_theory: CategoryTheoryBundle
+    architecture_map: ArchitectureMapBundle
+    architecture_contracts: ArchitectureContractsBundle
+    architecture_witnesses: ArchitectureWitnessBundle
     column_selection: ColumnSelectionBundle
     parameter_runtime: ParameterRuntimeBundle
     program_workflow: ProgramWorkflowBundle
@@ -86,6 +94,15 @@ class RetaArchitecture:
         sheaves = SheafBundle.from_repo(repo_root, schema)
         morphisms = MorphismBundle.from_topology_and_sheaves(topology, sheaves, output_semantics=output_semantics)
         universal = UniversalBundle(sheaves)
+        category_theory = bootstrap_category_theory()
+        architecture_map = bootstrap_architecture_map()
+        architecture_contracts = bootstrap_architecture_contracts(category_theory=category_theory, architecture_map=architecture_map)
+        architecture_witnesses = bootstrap_architecture_witnesses(
+            repo_root=repo_root,
+            category_theory=category_theory,
+            architecture_map=architecture_map,
+            architecture_contracts=architecture_contracts,
+        )
         column_selection = bootstrap_column_selection()
         parameter_runtime = bootstrap_parameter_runtime()
         table_preparation = bootstrap_table_preparation()
@@ -117,6 +134,10 @@ class RetaArchitecture:
             sheaves=sheaves,
             morphisms=morphisms,
             universal=universal,
+            category_theory=category_theory,
+            architecture_map=architecture_map,
+            architecture_contracts=architecture_contracts,
+            architecture_witnesses=architecture_witnesses,
             column_selection=column_selection,
             parameter_runtime=parameter_runtime,
             program_workflow=program_workflow,
@@ -234,6 +255,34 @@ class RetaArchitecture:
             return self.combi_join
         return bootstrap_combi_join()
 
+    def bootstrap_category_theory(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.category_theory
+        return bootstrap_category_theory()
+
+    def bootstrap_architecture_map(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.architecture_map
+        return bootstrap_architecture_map()
+
+    def bootstrap_architecture_contracts(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.architecture_contracts
+        return bootstrap_architecture_contracts(
+            category_theory=self.bootstrap_category_theory(),
+            architecture_map=self.bootstrap_architecture_map(),
+        )
+
+    def bootstrap_architecture_witnesses(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.architecture_witnesses
+        return bootstrap_architecture_witnesses(
+            repo_root=self.repo_root,
+            category_theory=self.bootstrap_category_theory(),
+            architecture_map=self.bootstrap_architecture_map(),
+            architecture_contracts=self.bootstrap_architecture_contracts(),
+        )
+
     def bootstrap_table_generation(self, csv_file_names=None, force_rebuild: bool = False):
         if csv_file_names is None:
             import i18n.words_runtime as words_runtime
@@ -346,4 +395,8 @@ class RetaArchitecture:
             "sheaves": self.sheaves.snapshot(),
             "morphisms": self.morphisms.snapshot(),
             "universal": self.universal.snapshot(),
+            "category_theory": self.bootstrap_category_theory().snapshot(),
+            "architecture_map": self.bootstrap_architecture_map().snapshot(),
+            "architecture_contracts": self.bootstrap_architecture_contracts().snapshot(),
+            "architecture_witnesses": self.bootstrap_architecture_witnesses().snapshot(),
         }
