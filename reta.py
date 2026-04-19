@@ -28,7 +28,6 @@ from reta_architecture.parameter_runtime import (
 )
 from reta_architecture.output_syntax import OutputSyntax
 from reta_architecture.number_theory import primCreativity
-from reta_architecture.table_runtime import Tables
 
 gebrochenSpaltenMaximumPlus1 = i18n.gebrochenSpaltenMaximumPlus1
 csvFileNames = i18n.csvFileNames
@@ -143,7 +142,9 @@ class Program:
         self.architecture = getattr(Txt, "architecture", None) or RetaArchitecture.bootstrap(repo_root)
         if Txt is not None and getattr(Txt, "architecture", None) is None:
             Txt.architecture = self.architecture
-        self.tables = Tables(self.oberesMaximum2(argv[1:]), Txt)
+        self.tables = self.architecture.bootstrap_table_runtime().create_tables(
+            self.oberesMaximum2(argv[1:]), Txt
+        )
         self.tables.architecture = self.architecture
 
         self.breiteHasBeenOnceZero = False

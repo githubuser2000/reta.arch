@@ -48,6 +48,7 @@ Aufruf:
   {program_name} table-preparation-json
   {program_name} row-filtering-json
   {program_name} table-wrapping-json
+  {program_name} table-state-json
   {program_name} number-theory-json
   {program_name} table-output-json
   {program_name} table-runtime-json
@@ -113,6 +114,9 @@ def main(argv):
         return 0
     if cmd == "table-wrapping-json":
         dump(ARCH.bootstrap_table_wrapping().snapshot())
+        return 0
+    if cmd == "table-state-json":
+        dump(ARCH.bootstrap_table_state().snapshot())
         return 0
     if cmd == "number-theory-json":
         dump(ARCH.bootstrap_number_theory().snapshot())

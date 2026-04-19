@@ -31,6 +31,7 @@ REQUIRED_SOURCE_PATHS = (
     "reta_architecture/table_preparation.py",
     "reta_architecture/row_filtering.py",
     "reta_architecture/table_wrapping.py",
+    "reta_architecture/table_state.py",
     "reta_architecture/number_theory.py",
     "reta_architecture/table_output.py",
     "reta_architecture/table_runtime.py",

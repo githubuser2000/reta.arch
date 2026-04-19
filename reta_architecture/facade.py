@@ -15,6 +15,7 @@ from .concat_csv import ConcatCsvBundle, bootstrap_concat_csv
 from .combi_join import KombiJoinBundle, bootstrap_combi_join
 from .table_preparation import TablePreparationBundle, bootstrap_table_preparation
 from .table_wrapping import TableWrappingBundle, bootstrap_table_wrapping
+from .table_state import TableStateBundle, bootstrap_table_state
 from .parameter_runtime import ParameterRuntimeBundle, bootstrap_parameter_runtime
 from .program_workflow import ProgramWorkflowBundle, bootstrap_program_workflow
 from .number_theory import NumberTheoryBundle, bootstrap_number_theory
@@ -43,6 +44,7 @@ class RetaArchitecture:
     program_workflow: ProgramWorkflowBundle
     table_preparation: TablePreparationBundle
     table_wrapping: TableWrappingBundle
+    table_state: TableStateBundle
     number_theory: NumberTheoryBundle
     table_output: TableOutputBundle
     table_runtime: object
@@ -88,11 +90,12 @@ class RetaArchitecture:
         parameter_runtime = bootstrap_parameter_runtime()
         table_preparation = bootstrap_table_preparation()
         table_wrapping = bootstrap_table_wrapping()
+        table_state = bootstrap_table_state()
         number_theory = bootstrap_number_theory()
         from .table_output import bootstrap_table_output
         table_output = bootstrap_table_output()
         from .table_runtime import bootstrap_table_runtime
-        table_runtime = bootstrap_table_runtime(output_semantics=output_semantics)
+        table_runtime = bootstrap_table_runtime(output_semantics=output_semantics, table_state=table_state)
         generated_columns = bootstrap_generated_columns()
         meta_columns = bootstrap_meta_columns()
         concat_csv = bootstrap_concat_csv()
@@ -119,6 +122,7 @@ class RetaArchitecture:
             program_workflow=program_workflow,
             table_preparation=table_preparation,
             table_wrapping=table_wrapping,
+            table_state=table_state,
             number_theory=number_theory,
             table_output=table_output,
             table_runtime=table_runtime,
@@ -178,6 +182,11 @@ class RetaArchitecture:
 
         return bootstrap_row_filtering()
 
+    def bootstrap_table_state(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.table_state
+        return bootstrap_table_state()
+
     def bootstrap_number_theory(self, force_rebuild: bool = False):
         if not force_rebuild:
             return self.number_theory
@@ -203,7 +212,7 @@ class RetaArchitecture:
         if not force_rebuild:
             return self.table_runtime
         from .table_runtime import bootstrap_table_runtime
-        return bootstrap_table_runtime(output_semantics=self.output_semantics)
+        return bootstrap_table_runtime(output_semantics=self.output_semantics, table_state=self.bootstrap_table_state())
 
     def bootstrap_generated_columns(self, force_rebuild: bool = False):
         if not force_rebuild:
@@ -319,6 +328,7 @@ class RetaArchitecture:
             "table_preparation": self.bootstrap_table_preparation().snapshot(),
             "row_filtering": self.bootstrap_row_filtering().snapshot(),
             "table_wrapping": self.bootstrap_table_wrapping().snapshot(),
+            "table_state": self.bootstrap_table_state().snapshot(),
             "number_theory": self.bootstrap_number_theory().snapshot(),
             "table_output": self.bootstrap_table_output().snapshot(),
             "table_runtime": self.bootstrap_table_runtime().snapshot(),

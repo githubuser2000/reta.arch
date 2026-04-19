@@ -41,6 +41,7 @@ from reta_architecture.parameter_runtime import ParameterRuntimeBundle  # noqa: 
 from reta_architecture.program_workflow import ProgramWorkflowBundle  # noqa: E402
 from reta_architecture.table_preparation import TablePreparationBundle  # noqa: E402
 from reta_architecture.table_wrapping import TableWrappingBundle  # noqa: E402
+from reta_architecture.table_state import TableStateBundle  # noqa: E402
 from reta_architecture.table_output import TableOutputBundle  # noqa: E402
 from reta_architecture.generated_columns import GeneratedColumnsBundle  # noqa: E402
 from reta_architecture.meta_columns import MetaColumnsBundle  # noqa: E402
@@ -512,6 +513,7 @@ class ArchitectureRefactorRegressionTest(unittest.TestCase):
         self.assertIn("reta_architecture/table_generation.py", manifest.files)
         self.assertIn("reta_architecture/table_preparation.py", manifest.files)
         self.assertIn("reta_architecture/table_wrapping.py", manifest.files)
+        self.assertIn("reta_architecture/table_state.py", manifest.files)
         self.assertIn("reta_architecture/table_output.py", manifest.files)
         self.assertIn("reta_architecture/table_runtime.py", manifest.files)
         self.assertIn("reta_architecture/output_syntax.py", manifest.files)
@@ -594,14 +596,38 @@ class ArchitectureRefactorRegressionTest(unittest.TestCase):
         self.assertIn("tableJoin", snapshot["morphisms"])
         self.assertIn("combi_join", self.architecture.snapshot())
 
+
+    def test_table_state_layer_is_explicit(self):
+        table_state = self.architecture.bootstrap_table_state(force_rebuild=True)
+        snapshot = table_state.snapshot()
+        self.assertIsInstance(table_state, TableStateBundle)
+        self.assertEqual(snapshot["class"], "TableStateBundle")
+        self.assertIn("generated_columns", snapshot["sections"])
+        self.assertIn("table_state", self.architecture.snapshot())
+        tables = self.architecture.bootstrap_table_runtime().create_tables(None, None)
+        self.assertEqual(tables.tableStateSnapshot["highest_rows"], {1024: 1024, 114: 163})
+        self.assertIs(tables.generatedSpaltenParameter, tables._state_sections.generated_columns.parameters)
+        self.assertIs(tables.generatedSpaltenParameter_Tags, tables._state_sections.generated_columns.tags)
+        tables.keineUeberschriften = True
+        tables.keineleereninhalte = True
+        tables.spaltegGestirn = True
+        self.assertTrue(tables.tableStateSnapshot["display"]["keine_ueberschriften"])
+        self.assertTrue(tables.tableStateSnapshot["display"]["keine_leeren_inhalte"])
+        self.assertTrue(tables.tableStateSnapshot["display"]["spalte_gestirn"])
+
     def test_table_runtime_layer_owns_tables(self):
         table_source = (REPO_ROOT / "libs" / "tableHandling.py").read_text(encoding="utf-8")
         table_runtime_source = (REPO_ROOT / "reta_architecture" / "table_runtime.py").read_text(encoding="utf-8")
+        reta_source = (REPO_ROOT / "reta.py").read_text(encoding="utf-8")
         generated_source = (REPO_ROOT / "reta_architecture" / "generated_columns.py").read_text(encoding="utf-8")
         combi_source = (REPO_ROOT / "reta_architecture" / "combi_join.py").read_text(encoding="utf-8")
         self.assertIn("from reta_architecture.table_runtime import", table_source)
         self.assertNotIn("class Tables:", table_source)
         self.assertIn("class Tables:", table_runtime_source)
+        self.assertIn("from .table_state import TableStateBundle", table_runtime_source)
+        self.assertNotIn("from reta_architecture.table_runtime import Tables", reta_source)
+        self.assertIn("bootstrap_table_runtime().create_tables", reta_source)
+        self.assertIn("state_sections", table_runtime_source)
         self.assertIn("from .combi_join import KombiJoin", table_runtime_source)
         self.assertIn("Combi = KombiJoin", table_runtime_source)
         self.assertNotIn("class Combi:", table_runtime_source)

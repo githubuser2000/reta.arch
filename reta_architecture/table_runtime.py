@@ -26,6 +26,7 @@ from .output_syntax import OutputSyntax
 from .table_output import TableOutput
 from .combi_join import KombiJoin
 from .generated_columns import bootstrap_generated_columns
+from .table_state import TableStateBundle, bootstrap_table_state
 
 OUTPUT_SEMANTICS = bootstrap_output_semantics(Path(__file__).resolve().parent.parent)
 
@@ -60,6 +61,34 @@ class Tables:
     in Stage 25 is ownership: this object now belongs to the architecture layer,
     while ``libs.tableHandling`` merely re-exports it.
     """
+
+    @property
+    def keineUeberschriften(self) -> bool:
+        return self._state_sections.display.keine_ueberschriften
+
+    @keineUeberschriften.setter
+    def keineUeberschriften(self, value: bool):
+        self._state_sections.display.keine_ueberschriften = bool(value)
+
+    @property
+    def keineleereninhalte(self) -> bool:
+        return self._state_sections.display.keine_leeren_inhalte
+
+    @keineleereninhalte.setter
+    def keineleereninhalte(self, value: bool):
+        self._state_sections.display.keine_leeren_inhalte = bool(value)
+
+    @property
+    def spaltegGestirn(self) -> bool:
+        return self._state_sections.display.spalte_gestirn
+
+    @spaltegGestirn.setter
+    def spaltegGestirn(self, value: bool):
+        self._state_sections.display.spalte_gestirn = bool(value)
+
+    @property
+    def tableStateSnapshot(self) -> dict:
+        return self._state_sections.snapshot()
 
     @property
     def outputModeName(self) -> str:
@@ -191,19 +220,17 @@ class Tables:
             liste2 += [""]
         return liste1, liste2
 
-    def __init__(self, hoechstZeil, Txt):
-        if hoechstZeil is None:
-            self.__hoechsteZeile = {1024: 1024, 114: 163}
-        else:
-            self.__hoechsteZeile = {1024: hoechstZeil, 114: hoechstZeil}
+    def __init__(self, hoechstZeil, Txt, state_bundle: TableStateBundle | None = None):
+        self._state_bundle = state_bundle or bootstrap_table_state()
+        self._state_sections = self._state_bundle.create_sections(hoechstZeil)
+        self.__hoechsteZeile = self._state_sections.highest_rows
 
         Prepare = _prepare_class()
         Concat = _concat_class()
 
-        self.keineUeberschriften = False
-        self.rowNumDisplay2rowNumOrig = OrderedDict()
-        self.generatedSpaltenParameter = OrderedDict()
-        self.generatedSpaltenParameter_Tags = OrderedDict()
+        self.rowNumDisplay2rowNumOrig = self._state_sections.row_display_to_original
+        self.generatedSpaltenParameter = self._state_sections.generated_columns.parameters
+        self.generatedSpaltenParameter_Tags = self._state_sections.generated_columns.tags
         self.getPrepare = Prepare(self, self.hoechsteZeile)
         self.getCombis = self.Combi(self)
         self.getConcat = Concat(self)
@@ -214,13 +241,13 @@ class Tables:
         self.nummeriere = True
         self.spaltegGestirn = False
         self.breitenn: list = []
-        self.religionNumbers: list = []
+        self.religionNumbers: list = self._state_sections.display.religion_numbers
         self.getOut.religionNumbers = self.religionNumbers
         self.getPrepare.religionNumbers = self.religionNumbers
         self.getCombis.religionNumbers = self.religionNumbers
         self.getPrepare.ifprimmultis = False
         self.getCombis.rowsOfcombi = OrderedSet()
-        self.__generRows__: set = OrderedSet()
+        self.__generRows__: set = self._state_sections.new_generated_rows()
 
     # Legacy compatibility: the implementation now lives in reta_architecture.combi_join.
     Combi = KombiJoin
@@ -251,9 +278,10 @@ class Tables:
 class TableRuntimeBundle:
     table_class: type = Tables
     output_semantics: RetaOutputSemantics = OUTPUT_SEMANTICS
+    table_state: TableStateBundle = bootstrap_table_state()
 
     def create_tables(self, hoechst_zeil=None, txt=None) -> Tables:
-        return self.table_class(hoechst_zeil, txt)
+        return self.table_class(hoechst_zeil, txt, state_bundle=self.table_state)
 
     def snapshot(self) -> dict:
         return {
@@ -261,6 +289,7 @@ class TableRuntimeBundle:
             "table_class": self.table_class.__name__,
             "owns_legacy_tables": True,
             "legacy_facade": "libs/tableHandling.py",
+            "state_sections": self.table_state.snapshot(),
             "component_morphisms": [
                 "Prepare",
                 "Concat",
@@ -271,5 +300,11 @@ class TableRuntimeBundle:
         }
 
 
-def bootstrap_table_runtime(output_semantics: RetaOutputSemantics | None = None) -> TableRuntimeBundle:
-    return TableRuntimeBundle(output_semantics=output_semantics or OUTPUT_SEMANTICS)
+def bootstrap_table_runtime(
+    output_semantics: RetaOutputSemantics | None = None,
+    table_state: TableStateBundle | None = None,
+) -> TableRuntimeBundle:
+    return TableRuntimeBundle(
+        output_semantics=output_semantics or OUTPUT_SEMANTICS,
+        table_state=table_state or bootstrap_table_state(),
+    )
