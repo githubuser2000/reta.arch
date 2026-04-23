@@ -317,7 +317,7 @@ def _map_checks(architecture_map: ArchitectureMapBundle) -> tuple[ArchitectureVa
         )
     )
     stage_failures = ()
-    if snapshot.get("stage") != 41:
+    if snapshot.get("stage") != 42:
         stage_failures = (f"stage={snapshot.get('stage')}",)
     stage_names = {item.stage for item in architecture_map.stage_steps}
     return (
@@ -328,7 +328,7 @@ def _map_checks(architecture_map: ArchitectureMapBundle) -> tuple[ArchitectureVa
             stage_failures,
             len(architecture_map.stage_steps),
             ("architecture-map-json",),
-            "Prüft, dass Stage 41 in der Architekturkarte sichtbar ist.",
+            "Prüft, dass Stage 42 in der Architekturkarte sichtbar ist.",
         ),
         _check(
             "ArchitectureFlowCapsuleReferenceCheck",

@@ -149,6 +149,18 @@ from .architecture_activation import (
     bootstrap_architecture_activation,
 )
 
+from .architecture_progress import (
+    ArchitectureProgressBundle,
+    LegacySurfaceProgressSpec,
+    MigrationExecutionSpec,
+    OutstandingWorkItemSpec,
+    ProgressCheckSpec,
+    ProgressValidationSpec,
+    Stage42ArchitecturePlan,
+    WaveExecutionSpec,
+    bootstrap_architecture_progress,
+)
+
 from .architecture_rehearsal import (
     ArchitectureRehearsalBundle,
     GateRehearsalSpec,
@@ -198,6 +210,7 @@ from .table_preparation import (
     bootstrap_table_preparation,
 )
 from .program_workflow import ProgramWorkflowBundle, bootstrap_program_workflow
+from .tag_schema import TagSchemaBundle, bootstrap_tag_schema
 from .number_theory import (
     NumberTheoryBundle,
     bootstrap_number_theory,

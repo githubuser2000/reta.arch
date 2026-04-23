@@ -42,7 +42,7 @@ def _ensure_runtime_dependencies() -> None:
         primFak as prim_fak,
         primRepeat as prim_repeat,
     )
-    from lib4tables_Enum import ST as st_enum
+    from .tag_schema import ST as st_enum
 
     ST = st_enum
     i18n = center_i18n.concat

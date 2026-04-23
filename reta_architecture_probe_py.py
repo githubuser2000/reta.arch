@@ -98,6 +98,8 @@ Aufruf:
   {program_name} architecture-rehearsal-md
   {program_name} architecture-activation-json
   {program_name} architecture-activation-md
+  {program_name} architecture-progress-json
+  {program_name} architecture-progress-md
 """
 
 
@@ -260,6 +262,9 @@ def main(argv):
     if cmd == "architecture-activation-json":
         dump(ARCH.bootstrap_architecture_activation().snapshot())
         return 0
+    if cmd == "architecture-progress-json":
+        dump(ARCH.bootstrap_architecture_progress().snapshot())
+        return 0
     if cmd == "architecture-validation-md":
         validation = ARCH.bootstrap_architecture_validation()
         print("# Reta Stage-40 Architektur-Validation")
@@ -372,6 +377,20 @@ def main(argv):
         print()
         print(activation.mermaid_diagram.rstrip())
         return 0
+    if cmd == "architecture-progress-md":
+        progress = ARCH.bootstrap_architecture_progress()
+        print("# Reta Stage-42 Architektur-Fortschritt")
+        print()
+        print("## Fortschrittsbaum")
+        print()
+        print("```text")
+        print(progress.text_diagram.rstrip())
+        print("```")
+        print()
+        print("## Mermaid")
+        print()
+        print(progress.mermaid_diagram.rstrip())
+        return 0
     if cmd == "architecture-witnesses-md":
         witnesses = ARCH.bootstrap_architecture_witnesses()
         print("# Reta Stage-30 Architektur-Witnesses")
@@ -402,7 +421,7 @@ def main(argv):
         return 0
     if cmd == "architecture-diagram-md":
         architecture_map = ARCH.bootstrap_architecture_map()
-        print("# Reta Stage-40 Gesamtarchitektur")
+        print("# Reta Stage-42 Gesamtarchitektur")
         print()
         print("## Kapselbaum")
         print()

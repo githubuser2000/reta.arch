@@ -42,6 +42,7 @@ from .architecture_impact import ArchitectureImpactBundle, bootstrap_architectur
 from .architecture_migration import ArchitectureMigrationBundle, bootstrap_architecture_migration
 from .architecture_rehearsal import ArchitectureRehearsalBundle, bootstrap_architecture_rehearsal
 from .architecture_activation import ArchitectureActivationBundle, bootstrap_architecture_activation
+from .architecture_progress import ArchitectureProgressBundle, bootstrap_architecture_progress
 
 
 _ARCHITECTURE_BOOTSTRAP_CACHE: dict[Path, "RetaArchitecture"] = {}
@@ -76,6 +77,7 @@ class RetaArchitecture:
     architecture_migration: ArchitectureMigrationBundle
     architecture_rehearsal: ArchitectureRehearsalBundle
     architecture_activation: ArchitectureActivationBundle
+    architecture_progress: ArchitectureProgressBundle
     column_selection: ColumnSelectionBundle
     parameter_runtime: ParameterRuntimeBundle
     program_workflow: ProgramWorkflowBundle
@@ -103,7 +105,7 @@ class RetaArchitecture:
         import i18n.words_context as words_context
         import i18n.words_matrix as words_matrix
         import i18n.words_runtime as words_runtime
-        from libs.lib4tables_Enum import ST, tableTags
+        from .tag_schema import ST, tableTags
 
         schema = RetaContextSchema.from_words_parts(
             context_module=words_context,
@@ -187,6 +189,11 @@ class RetaArchitecture:
             architecture_migration=architecture_migration,
             architecture_rehearsal=architecture_rehearsal,
         )
+        architecture_progress = bootstrap_architecture_progress(
+            repo_root=repo_root,
+            architecture_migration=architecture_migration,
+            architecture_activation=architecture_activation,
+        )
         architecture_validation = bootstrap_architecture_validation(
             repo_root=repo_root,
             category_theory=category_theory,
@@ -255,6 +262,7 @@ class RetaArchitecture:
             architecture_migration=architecture_migration,
             architecture_rehearsal=architecture_rehearsal,
             architecture_activation=architecture_activation,
+            architecture_progress=architecture_progress,
             column_selection=column_selection,
             parameter_runtime=parameter_runtime,
             program_workflow=program_workflow,
@@ -509,6 +517,15 @@ class RetaArchitecture:
             architecture_rehearsal=self.bootstrap_architecture_rehearsal(),
         )
 
+    def bootstrap_architecture_progress(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.architecture_progress
+        return bootstrap_architecture_progress(
+            repo_root=self.repo_root,
+            architecture_migration=self.bootstrap_architecture_migration(),
+            architecture_activation=self.bootstrap_architecture_activation(),
+        )
+
     def bootstrap_architecture_validation(self, force_rebuild: bool = False):
         if not force_rebuild:
             return self.architecture_validation
@@ -660,4 +677,5 @@ class RetaArchitecture:
             "architecture_migration": self.bootstrap_architecture_migration().snapshot(),
             "architecture_rehearsal": self.bootstrap_architecture_rehearsal().snapshot(),
             "architecture_activation": self.bootstrap_architecture_activation().snapshot(),
+            "architecture_progress": self.bootstrap_architecture_progress().snapshot(),
         }

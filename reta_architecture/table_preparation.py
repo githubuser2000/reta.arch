@@ -51,10 +51,9 @@ class KombiTablePreparationResult:
 
 def _tag_modules():
     """Importiere Legacy-Tag-Module lazy, um Importzyklen klein zu halten."""
-    import lib4tables_Enum
-    from lib4tables_Enum import ST
+    from . import tag_schema
 
-    return lib4tables_Enum, ST
+    return tag_schema, tag_schema.ST
 
 
 def prepare_output_table(

@@ -57,6 +57,7 @@ from reta_architecture.architecture_impact import ArchitectureImpactBundle  # no
 from reta_architecture.architecture_migration import ArchitectureMigrationBundle  # noqa: E402
 from reta_architecture.architecture_rehearsal import ArchitectureRehearsalBundle  # noqa: E402
 from reta_architecture.architecture_activation import ArchitectureActivationBundle  # noqa: E402
+from reta_architecture.architecture_progress import ArchitectureProgressBundle  # noqa: E402
 from reta_architecture.row_ranges import RowRangeMorphismBundle  # noqa: E402
 from reta_architecture.arithmetic import ArithmeticMorphismBundle  # noqa: E402
 from reta_architecture.console_io import ConsoleIOMorphismBundle  # noqa: E402
@@ -71,6 +72,7 @@ from reta_architecture.row_filtering import RowFilteringBundle  # noqa: E402
 from reta_architecture.output_syntax import OutputSyntaxBundle  # noqa: E402
 from reta_architecture.number_theory import NumberTheoryBundle, primCreativity as arch_prim_creativity, moonNumber as arch_moon_number  # noqa: E402
 from reta_architecture.package_integrity import RepoManifest  # noqa: E402
+from reta_architecture.tag_schema import TagSchemaBundle, bootstrap_tag_schema  # noqa: E402
 
 
 class ArchitectureRefactorRegressionTest(unittest.TestCase):
@@ -946,12 +948,12 @@ class ArchitectureRefactorRegressionTest(unittest.TestCase):
         snapshot = architecture_map.snapshot()
         self.assertIsInstance(architecture_map, ArchitectureMapBundle)
         self.assertEqual(snapshot["class"], "ArchitectureMapBundle")
-        self.assertEqual(snapshot["stage"], 41)
+        self.assertEqual(snapshot["stage"], 42)
         self.assertTrue(hasattr(self.architecture, "architecture_map"))
         self.assertGreaterEqual(snapshot["counts"]["capsules"], 10)
         self.assertGreaterEqual(snapshot["counts"]["flows"], 10)
         self.assertGreaterEqual(snapshot["counts"]["legacy_mappings"], 10)
-        self.assertEqual(snapshot["counts"]["stage_steps"], 41)
+        self.assertEqual(snapshot["counts"]["stage_steps"], 42)
         capsule_names = {item["name"] for item in snapshot["capsules"]}
         self.assertIn("SchemaTopologyCapsule", capsule_names)
         self.assertIn("TableCoreCapsule", capsule_names)
@@ -1235,7 +1237,7 @@ class ArchitectureRefactorRegressionTest(unittest.TestCase):
         self.assertIn("natural_transformation", snapshot["paradigm"])
         self.assertGreaterEqual(snapshot["counts"]["component_traces"], 15)
         self.assertGreaterEqual(snapshot["counts"]["capsule_traces"], 11)
-        self.assertEqual(snapshot["counts"]["stage_traces"], 41)
+        self.assertEqual(snapshot["counts"]["stage_traces"], 42)
         self.assertGreaterEqual(snapshot["counts"]["route_hops"], 100)
         self.assertEqual(snapshot["validation"]["status"], "passed")
         self.assertEqual(snapshot["validation"]["missing_component_traces"], [])
@@ -1466,6 +1468,75 @@ class ArchitectureRefactorRegressionTest(unittest.TestCase):
         self.assertIn("class ArchitectureActivationBundle", source)
         self.assertIn("class ActivationUnitSpec", source)
         self.assertIn("bootstrap_architecture_activation", source)
+
+
+    def test_tag_schema_owner_is_explicit(self):
+        from reta_architecture.tag_schema import ST
+
+        tag_schema = bootstrap_tag_schema()
+        snapshot = tag_schema.snapshot()
+        self.assertIsInstance(tag_schema, TagSchemaBundle)
+        self.assertEqual(snapshot["class"], "TagSchemaBundle")
+        self.assertEqual(snapshot["stage"], 42)
+        self.assertEqual(snapshot["legacy_owner"], "libs/lib4tables_Enum.py")
+        self.assertGreaterEqual(snapshot["counts"]["primary_tag_groups"], 19)
+        self.assertIn("sternPolygon", snapshot["tag_names"])
+        reverse_tags = frozenset({ST.sternPolygon, ST.galaxie})
+        explicit_group = frozenset({
+            ST.universum,
+            ST.keinParaOdMetaP,
+            ST.sternPolygon,
+            ST.gleichfoermigesPolygon,
+        })
+        self.assertEqual(tag_schema.tags_for_column(14), reverse_tags)
+        self.assertIn(14, tag_schema.columns_for_tags(explicit_group))
+        legacy_source = (REPO_ROOT / "libs" / "lib4tables_Enum.py").read_text(encoding="utf-8")
+        arch_source = (REPO_ROOT / "reta_architecture" / "tag_schema.py").read_text(encoding="utf-8")
+        self.assertIn("reta_architecture.tag_schema", legacy_source)
+        self.assertIn("compatibility facade", legacy_source.lower())
+        self.assertIn("class TagSchemaBundle", arch_source)
+        self.assertIn("bootstrap_tag_schema", arch_source)
+
+
+    def test_architecture_progress_layer_is_explicit(self):
+        progress = self.architecture.bootstrap_architecture_progress()
+        snapshot = progress.snapshot()
+        self.assertIsInstance(progress, ArchitectureProgressBundle)
+        self.assertEqual(snapshot["class"], "ArchitectureProgressBundle")
+        self.assertEqual(snapshot["stage"], 42)
+        self.assertTrue(hasattr(self.architecture, "architecture_progress"))
+        self.assertIn("progress_overlay", snapshot["paradigm"])
+        self.assertIn("compatibility_facade", snapshot["paradigm"])
+        self.assertGreaterEqual(snapshot["counts"]["surfaces"], 25)
+        self.assertGreaterEqual(snapshot["counts"]["step_progress"], 30)
+        self.assertGreaterEqual(snapshot["counts"]["wave_progress"], 7)
+        self.assertEqual(snapshot["validation"]["steps_without_surface"], [])
+        self.assertEqual(snapshot["validation"]["inconsistent_wave_counts"], [])
+        surface_owners = {item["owner"] for item in snapshot["surfaces"]}
+        self.assertIn("reta.py", surface_owners)
+        self.assertIn("libs/center.py", surface_owners)
+        self.assertIn("libs/lib4tables_Enum.py", surface_owners)
+        enum_surface = progress.surface_named("libs/lib4tables_Enum.py").snapshot()
+        self.assertEqual(enum_surface["execution_status"], "extracted_to_compatibility_facade")
+        self.assertEqual(snapshot["validation"]["mixed_owners"], [])
+        wave_ids = {item["wave_id"] for item in snapshot["wave_progress"]}
+        for wave_id in {"M0", "M1", "M2", "M3", "M4", "M5", "M6"}:
+            self.assertIn(wave_id, wave_ids)
+        remaining_titles = {item["title"] for item in snapshot["outstanding_work"]}
+        self.assertNotIn("Extract remaining tag/data owner from lib4tables_Enum", remaining_titles)
+        if (REPO_ROOT / ".git").exists() or Path("/mnt/data/reta.todel.zip").exists():
+            self.assertEqual(snapshot["counts"]["outstanding_work"], 0)
+            self.assertEqual(snapshot["validation"]["status"], "passed")
+            self.assertEqual(remaining_titles, set())
+        else:
+            self.assertGreaterEqual(snapshot["counts"]["outstanding_work"], 1)
+            self.assertEqual(snapshot["validation"]["status"], "attention")
+            self.assertIn("Restore original reference archive for command parity", remaining_titles)
+        self.assertIn("ArchitectureProgressBundle", snapshot["diagrams"]["text"])
+        source = (REPO_ROOT / "reta_architecture" / "architecture_progress.py").read_text(encoding="utf-8")
+        self.assertIn("class ArchitectureProgressBundle", source)
+        self.assertIn("class LegacySurfaceProgressSpec", source)
+        self.assertIn("bootstrap_architecture_progress", source)
 
 
     def test_known_pair_lookup_still_resolves(self):

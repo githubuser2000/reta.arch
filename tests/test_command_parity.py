@@ -13,13 +13,72 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ORIGINAL_ZIP = Path('/mnt/data/reta.todel.zip')
+GIT_BASELINE_COMMIT = os.environ.get('RETA_PARITY_BASELINE_COMMIT')
 
 
 class CommandParityMatrixTest(unittest.TestCase):
+    @staticmethod
+    def _git_command(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [
+                'git',
+                '-c',
+                f'safe.directory={REPO_ROOT}',
+                '-C',
+                str(REPO_ROOT),
+                *args,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    @classmethod
+    def _oldest_git_commit(cls) -> str | None:
+        try:
+            proc = cls._git_command('rev-list', '--max-parents=0', 'HEAD')
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return None
+        if proc.returncode != 0:
+            return None
+        for line in proc.stdout.splitlines():
+            commit = line.strip()
+            if commit:
+                return commit
+        return None
+
+    @classmethod
+    def _resolve_original_archive(cls) -> Path:
+        if ORIGINAL_ZIP.exists():
+            return ORIGINAL_ZIP
+        commit = GIT_BASELINE_COMMIT or cls._oldest_git_commit()
+        if not commit:
+            raise unittest.SkipTest(
+                f'Original-Archiv fehlt: {ORIGINAL_ZIP}; kein Git-Baseline-Commit verfügbar.'
+            )
+        baseline_zip = cls.temp_root / f'reta.todel.{commit}.zip'
+        try:
+            proc = cls._git_command(
+                'archive',
+                '--format=zip',
+                '--prefix=reta.todel/',
+                commit,
+                '-o',
+                str(baseline_zip),
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+            raise unittest.SkipTest(
+                f'Original-Archiv fehlt: {ORIGINAL_ZIP}; Git-Baseline-Export aus Commit {commit} schlug fehl: {exc}'
+            )
+        if proc.returncode != 0 or not baseline_zip.exists():
+            stderr = proc.stderr.strip() or proc.stdout.strip() or 'unbekannter Fehler'
+            raise unittest.SkipTest(
+                f'Original-Archiv fehlt: {ORIGINAL_ZIP}; Git-Baseline-Export aus Commit {commit} schlug fehl: {stderr}'
+            )
+        return baseline_zip
+
     @classmethod
     def setUpClass(cls):
-        if not ORIGINAL_ZIP.exists():
-            raise unittest.SkipTest(f'Original-Archiv fehlt: {ORIGINAL_ZIP}')
         cls._tempdir = tempfile.TemporaryDirectory(prefix='reta-parity-')
         cls.temp_root = Path(cls._tempdir.name)
         cls.stub_root = cls.temp_root / 'stubs'
@@ -27,7 +86,8 @@ class CommandParityMatrixTest(unittest.TestCase):
         cls.stub_root.mkdir(parents=True, exist_ok=True)
         cls.original_root.mkdir(parents=True, exist_ok=True)
         cls._write_dependency_stubs(cls.stub_root)
-        with zipfile.ZipFile(ORIGINAL_ZIP) as zf:
+        original_archive = cls._resolve_original_archive()
+        with zipfile.ZipFile(original_archive) as zf:
             zf.extractall(cls.original_root)
         cls.original_repo = cls.original_root / 'reta.todel'
         if not cls.original_repo.exists():

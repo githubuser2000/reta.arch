@@ -173,8 +173,8 @@ class ArchitectureMapBundle:
     def snapshot(self) -> dict:
         return {
             "class": type(self).__name__,
-            "stage": 41,
-            "purpose": "Gesamtarchitektur, Kapselstruktur, reta-zu-Paradigma-Zuordnung, Datenflussdiagramm, Verträge, Witness-Matrix, Validierung/Kohärenz, Trace-/Boundary-, Impact-, Migration-, Rehearsal-, Aktivierungs- und Stage-37-Row-Range-, Stage-38-Arithmetik- und Stage-39-Console-IO- und Stage-40-Word-Completion-Aktivierungsschicht.",
+            "stage": 42,
+            "purpose": "Gesamtarchitektur, Kapselstruktur, reta-zu-Paradigma-Zuordnung, Datenflussdiagramm, Verträge, Witness-Matrix, Validierung/Kohärenz, Trace-/Boundary-, Impact-, Migration-, Rehearsal-, Aktivierungs- und Stage-37-Row-Range-, Stage-38-Arithmetik-, Stage-39-Console-IO-, Stage-40-Word-Completion-, Stage-41-Nested-Completion- und Stage-42-Fortschrittsschicht.",
             "counts": {
                 "capsules": len(self.capsules),
                 "containment": len(self.containment),
@@ -812,7 +812,7 @@ def _legacy_mappings() -> tuple[RetaPartMappingSpec, ...]:
             "libs/lib4tables_Enum.py",
             "Tabellen-Tags und enumartige Markierungen.",
             "SchemaTopologyCapsule + GeneratedRelationCapsule",
-            ("reta_architecture/schema.py", "reta_architecture/generated_columns.py", "reta_architecture/table_state.py"),
+            ("reta_architecture/tag_schema.py", "reta_architecture/schema.py", "reta_architecture/generated_columns.py", "reta_architecture/table_state.py"),
             ("Topologie-Tags", "Generated-column metadata", "Garbe"),
             "Stages 1, 17, 26",
             "Enum names stay import-compatible.",
@@ -1540,6 +1540,19 @@ def _stage41_stage_steps() -> tuple[StageArchitectureStep, ...]:
         StageArchitectureStep("Stage 41", "Aktivierte Nested-Completion-Morphismen", ("Stage-40 word completion was activated but nestedAlx still owned hierarchical completion transitions",), ("completion_nested.py", "nested-completion-json", "NestedCompleterCompatibilitySquare", "ActivatedNestedCompletionLaw"), "InputPromptCapsule", "Fünfter echter Aktivierungsschritt: NestedCompleter wandert aus nestedAlx.py in NestedCompletionMorphismBundle; nestedAlx.py bleibt Legacy-Fassade"),
     )
 
+
+
+def _stage42_legacy_mappings() -> tuple[RetaPartMappingSpec, ...]:
+    return (
+        RetaPartMappingSpec("reta_architecture/architecture_progress.py", "observed progress overlay that compares the Stage-34 migration plan with the actually extracted compatibility facades, active architecture owners and remaining mixed surfaces", "CategoricalMetaCapsule", ("ArchitectureProgressBundle", "MigrationExecutionSpec", "WaveExecutionSpec", "OutstandingWorkItemSpec"), ("Topologie", "Morphism", "universelle Eigenschaft", "Prägarbe", "Functor", "natural transformation"), "Stage 42", "architecture-progress-json", "Stage 42 does not move runtime behaviour; it turns the migration plan into an explicit current-status overlay."),
+    )
+
+
+def _stage42_stage_steps() -> tuple[StageArchitectureStep, ...]:
+    return (
+        StageArchitectureStep("Stage 42", "Architektur-Fortschritt als explizite Statusschicht", ("Stage-34 migration metadata still described all moves as planned even though Stage-37 to Stage-41 had already activated several runtime owners",), ("architecture_progress.py", "architecture-progress-json", "architecture-progress-md", "ARCHITECTURE_STATUS_STAGE42.md"), "CategoricalMetaCapsule", "Stage 42 legt eine explizite Fortschritts- und Bestandsaufnahmeschicht über den Migrationsplan: sie markiert reale Kompatibilitätsfassaden, aktive Architektur-Owner und die wenigen verbleibenden gemischten Rest-Owner."),
+    )
+
 def bootstrap_architecture_map() -> ArchitectureMapBundle:
     """Return the current staged total architecture and capsule map."""
 
@@ -1547,8 +1560,8 @@ def bootstrap_architecture_map() -> ArchitectureMapBundle:
         capsules=_stage41_capsules(),
         containment=_containment() + _stage32_containment() + _stage33_containment() + _stage34_containment() + _stage35_containment() + _stage36_containment() + _stage37_containment() + _stage38_containment() + _stage39_containment() + _stage40_containment() + _stage41_containment(),
         flows=_flows() + _stage32_flows() + _stage33_flows() + _stage34_flows() + _stage35_flows() + _stage36_flows() + _stage37_flows() + _stage38_flows() + _stage39_flows() + _stage40_flows() + _stage41_flows(),
-        legacy_mappings=_legacy_mappings() + _stage32_legacy_mappings() + _stage33_legacy_mappings() + _stage34_legacy_mappings() + _stage35_legacy_mappings() + _stage36_legacy_mappings() + _stage37_legacy_mappings() + _stage38_legacy_mappings() + _stage39_legacy_mappings() + _stage40_legacy_mappings() + _stage41_legacy_mappings(),
-        stage_steps=_stage_steps() + _stage32_stage_steps() + _stage33_stage_steps() + _stage34_stage_steps() + _stage35_stage_steps() + _stage36_stage_steps() + _stage37_stage_steps() + _stage38_stage_steps() + _stage39_stage_steps() + _stage40_stage_steps() + _stage41_stage_steps(),
+        legacy_mappings=_legacy_mappings() + _stage32_legacy_mappings() + _stage33_legacy_mappings() + _stage34_legacy_mappings() + _stage35_legacy_mappings() + _stage36_legacy_mappings() + _stage37_legacy_mappings() + _stage38_legacy_mappings() + _stage39_legacy_mappings() + _stage40_legacy_mappings() + _stage41_legacy_mappings() + _stage42_legacy_mappings(),
+        stage_steps=_stage_steps() + _stage32_stage_steps() + _stage33_stage_steps() + _stage34_stage_steps() + _stage35_stage_steps() + _stage36_stage_steps() + _stage37_stage_steps() + _stage38_stage_steps() + _stage39_stage_steps() + _stage40_stage_steps() + _stage41_stage_steps() + _stage42_stage_steps(),
         mermaid_diagram=_MERMAID_DIAGRAM,
         text_diagram=_TEXT_DIAGRAM,
         markdown_audit=_markdown_audit(),

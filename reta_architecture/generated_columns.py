@@ -65,7 +65,7 @@ def _ensure_runtime_dependencies() -> None:
         primCreativity as prim_creativity,
         primMultiple as prim_multiple,
     )
-    from lib4tables_Enum import ST as st_enum
+    from .tag_schema import ST as st_enum
 
     _i18n = center_i18n.concat
     ST = st_enum
@@ -1926,7 +1926,7 @@ def create_spalte_gestirn(tables, relitable: list, rows_as_numbers: set) -> tupl
     """
     from center import i18n as center_i18n
     from .number_theory import moonNumber as moon_number
-    from lib4tables_Enum import ST as st_enum
+    from .tag_schema import ST as st_enum
 
     if set(rows_as_numbers) >= {64}:
         if len(relitable) > 0:
