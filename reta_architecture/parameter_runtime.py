@@ -32,15 +32,19 @@ def _ensure_runtime_imports() -> None:
     global BereichToNumbers2, i18n, i18nR, cliout, getTextWrapThings, shellRowsAmount
     if i18n is not None:
         return
-    from center import BereichToNumbers2 as _BereichToNumbers2, i18n as _i18n
-    from tableHandling import cliout as _cliout, getTextWrapThings as _getTextWrapThings, shellRowsAmount as _shellRowsAmount
+    from .runtime_compat import (
+        BereichToNumbers2 as _BereichToNumbers2,
+        cliout as _cliout,
+        getTextWrapThings as _getTextWrapThings,
+        i18n as _i18n,
+    )
 
     BereichToNumbers2 = _BereichToNumbers2
     i18n = _i18n
     i18nR = _i18n.retapy
     cliout = _cliout
     getTextWrapThings = _getTextWrapThings
-    shellRowsAmount = _shellRowsAmount
+    shellRowsAmount = _getTextWrapThings()[0]
 
 
 @dataclass(frozen=True)

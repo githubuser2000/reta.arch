@@ -17,7 +17,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Type
 
-from center import cliout, getTextWrapThings, primfaktoren
+from .runtime_compat import cliout, getTextWrapThings, primfaktoren
 from .output_syntax import (
     OutputSyntax,
     bbCodeSyntax,

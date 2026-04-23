@@ -27,15 +27,14 @@ couldBePrimeNumberPrimzahlkreuz = None
 primCreativity = None
 primFak = None
 primRepeat = None
-x = None
 
 
 def _ensure_runtime_dependencies() -> None:
     global ST, i18n, nPmEnum, couldBePrimeNumberPrimzahlkreuz
-    global primCreativity, primFak, primRepeat, x
+    global primCreativity, primFak, primRepeat
     if i18n is not None:
         return
-    from center import i18n as center_i18n, nPmEnum as center_nPmEnum, x as center_x
+    from .runtime_compat import i18n as runtime_i18n, nPmEnum as runtime_nPmEnum
     from .number_theory import (
         couldBePrimeNumberPrimzahlkreuz as prime_cross_predicate,
         primCreativity as prim_creativity,
@@ -45,13 +44,12 @@ def _ensure_runtime_dependencies() -> None:
     from .tag_schema import ST as st_enum
 
     ST = st_enum
-    i18n = center_i18n.concat
-    nPmEnum = center_nPmEnum
+    i18n = runtime_i18n.concat
+    nPmEnum = runtime_nPmEnum
     couldBePrimeNumberPrimzahlkreuz = prime_cross_predicate
     primCreativity = prim_creativity
     primFak = prim_fak
     primRepeat = prim_repeat
-    x = center_x
 
 
 @dataclass(frozen=True)

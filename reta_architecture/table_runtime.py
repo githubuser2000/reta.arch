@@ -36,19 +36,19 @@ class BreakoutException(Exception):
 
 
 def _get_text_wrap_things():
-    from center import getTextWrapThings
+    from .runtime_compat import getTextWrapThings
 
     return getTextWrapThings()
 
 
 def _prepare_class():
-    from lib4tables_prepare import Prepare
+    from .table_adapters import Prepare
 
     return Prepare
 
 
 def _concat_class():
-    from lib4tables_concat import Concat
+    from .table_adapters import Concat
 
     return Concat
 

@@ -10,6 +10,7 @@ owned here now.
 
 from dataclasses import dataclass, field
 from fractions import Fraction
+import re
 from collections import OrderedDict
 from copy import copy, deepcopy
 from itertools import zip_longest
@@ -29,7 +30,6 @@ primfaktoren = None
 Multiplikationen = None
 multiples = None
 unique_everseen = None
-re = None
 couldBePrimeNumberPrimzahlkreuz = None
 couldBePrimeNumberPrimzahlkreuz_fuer_aussen = None
 couldBePrimeNumberPrimzahlkreuz_fuer_innen = None
@@ -40,7 +40,7 @@ primMultiple = None
 
 
 def _ensure_runtime_dependencies() -> None:
-    global _i18n, ST, primfaktoren, Multiplikationen, multiples, unique_everseen, re
+    global _i18n, ST, primfaktoren, Multiplikationen, multiples, unique_everseen
     global couldBePrimeNumberPrimzahlkreuz
     global couldBePrimeNumberPrimzahlkreuz_fuer_aussen
     global couldBePrimeNumberPrimzahlkreuz_fuer_innen
@@ -48,14 +48,13 @@ def _ensure_runtime_dependencies() -> None:
     global moonNumber, primCreativity, primMultiple
     if _i18n is not None:
         return
-    from center import (
-        Multiplikationen as center_Multiplikationen,
-        i18n as center_i18n,
-        multiples as center_multiples,
-        unique_everseen as center_unique_everseen,
-        primfaktoren as center_primfaktoren,
-        re as center_re,
+    from .runtime_compat import (
+        Multiplikationen as runtime_Multiplikationen,
         Primzahlkreuz_pro_contra_strs as prime_cross_pro_contra_strings,
+        i18n as runtime_i18n,
+        multiples as runtime_multiples,
+        primfaktoren as runtime_primfaktoren,
+        unique_everseen as runtime_unique_everseen,
     )
     from .number_theory import (
         couldBePrimeNumberPrimzahlkreuz as prime_cross_any,
@@ -67,13 +66,12 @@ def _ensure_runtime_dependencies() -> None:
     )
     from .tag_schema import ST as st_enum
 
-    _i18n = center_i18n.concat
+    _i18n = runtime_i18n.concat
     ST = st_enum
-    primfaktoren = center_primfaktoren
-    Multiplikationen = center_Multiplikationen
-    multiples = center_multiples
-    unique_everseen = center_unique_everseen
-    re = center_re
+    primfaktoren = runtime_primfaktoren
+    Multiplikationen = runtime_Multiplikationen
+    multiples = runtime_multiples
+    unique_everseen = runtime_unique_everseen
     Primzahlkreuz_pro_contra_strs = prime_cross_pro_contra_strings
     couldBePrimeNumberPrimzahlkreuz = prime_cross_any
     couldBePrimeNumberPrimzahlkreuz_fuer_aussen = prime_cross_outer
@@ -1924,8 +1922,8 @@ def create_spalte_gestirn(tables, relitable: list, rows_as_numbers: set) -> tupl
     table/list structures exactly like the old method and also returns them for
     newer morphism-style callers.
     """
-    from center import i18n as center_i18n
     from .number_theory import moonNumber as moon_number
+    from .runtime_compat import i18n as runtime_i18n
     from .tag_schema import ST as st_enum
 
     if set(rows_as_numbers) >= {64}:
@@ -1939,29 +1937,29 @@ def create_spalte_gestirn(tables, relitable: list, rows_as_numbers: set) -> tupl
                 {st_enum.sternPolygon, st_enum.universum, st_enum.galaxie}
             )
 
-        relitable[0] += [center_i18n.tableHandling.gestirnGrossschrift["Gestirn"]]
+        relitable[0] += [runtime_i18n.tableHandling.gestirnGrossschrift["Gestirn"]]
         relitable[1] += [
-            center_i18n.tableHandling.gestirnGrossschrift["Sonne (keine Potenzen)"]
+            runtime_i18n.tableHandling.gestirnGrossschrift["Sonne (keine Potenzen)"]
         ]
         for i, line in enumerate(relitable[2:], start=2):
             if moon_number(i)[1] != []:
-                line1 = [center_i18n.tableHandling.gestirnGrossschrift["Mond (Potenzen)"]]
+                line1 = [runtime_i18n.tableHandling.gestirnGrossschrift["Mond (Potenzen)"]]
             else:
                 line1 = [
-                    center_i18n.tableHandling.gestirnGrossschrift[
+                    runtime_i18n.tableHandling.gestirnGrossschrift[
                         "Sonne (keine Potenzen)"
                     ]
                 ]
             if i % 2 == 0:
-                line1 += [center_i18n.tableHandling.gestirnGrossschrift["Planet (2*n)"]]
+                line1 += [runtime_i18n.tableHandling.gestirnGrossschrift["Planet (2*n)"]]
             if i % 3 == 0:
                 line1 += [
-                    center_i18n.tableHandling.gestirnGrossschrift[
+                    runtime_i18n.tableHandling.gestirnGrossschrift[
                         "wäre eine schwarze Sonne (-3*n), wenn ins Negative durch eine Typ 13 verdreht"
                     ]
                 ]
             line += [
-                center_i18n.tableHandling.gestirnGrossschrift[", und außerdem "].join(line1)
+                runtime_i18n.tableHandling.gestirnGrossschrift[", und außerdem "].join(line1)
             ]
     return relitable, rows_as_numbers
 

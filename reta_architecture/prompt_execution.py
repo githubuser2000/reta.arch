@@ -9,7 +9,7 @@ from copy import copy, deepcopy
 from dataclasses import dataclass
 from fractions import Fraction
 
-from center import (
+from .runtime_compat import (
     BereichToNumbers2,
     cliout,
     i18n,
@@ -603,45 +603,6 @@ def PromptGrosseAusgabe(
         sprachenWahl = "english"
         print("set to english")
         return loggingSwitch
-        from importlib import reload
-
-        import __main__
-        import center
-        import lib4tables
-        import lib4tables_concat
-        import lib4tables_Enum
-        import lib4tables_prepare
-        import LibRetaPrompt
-        import nestedAlx
-        import prompt_toolkit
-        import prompt_toolkit.completion
-        import prompt_toolkit.history
-        import prompt_toolkit.styles
-        import tableHandling
-        import word_completerAlx
-
-        import reta
-        import retaPrompt
-
-        for a in range(2):
-            reload(center)
-            reload(i18n)
-            reload(LibRetaPrompt)
-            reload(tableHandling)
-            reload(reta)
-            reload(nestedAlx)
-            reload(word_completerAlx)
-            reload(tableHandling)
-            reload(lib4tables_Enum)
-            reload(lib4tables_prepare)
-            reload(lib4tables)
-            reload(lib4tables_concat)
-            reload(prompt_toolkit)
-            reload(prompt_toolkit.completion)
-            reload(prompt_toolkit.history)
-            reload(prompt_toolkit.styles)
-            reload(retaPrompt)
-            i18nRP = i18n.retaPrompt
 
     if fullBlockIsZahlenbereichAndBruch and (bedingungZahl or bedingungBrueche):
         if Txt.hasWithoutABC({i18n.befehle2["leeren"]}):

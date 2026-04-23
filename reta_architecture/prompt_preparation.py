@@ -5,7 +5,7 @@ from copy import copy
 from dataclasses import dataclass
 from pathlib import Path
 
-from center import BereichToNumbers2, i18n, isZeilenAngabe, teiler, x
+from .runtime_compat import BereichToNumbers2, i18n, isZeilenAngabe, teiler
 
 from .prompt_execution import vorherVonAusschnittOderZaehlung
 from .prompt_language import PromptModus, custom_split, stextFromKleinKleinKleinBefehl
@@ -391,13 +391,13 @@ def promptVorbereitungGrosseAusgabe(
             try:
                 tx = Txt.liste
                 tx.remove(i18n.befehle2["w"])
-                Txt.liste = x
+                Txt.liste = tx
             except:
                 pass
             try:
                 tx = Txt.liste
                 tx.remove(i18n.befehle2["teiler"])
-                Txt.liste = x
+                Txt.liste = tx
             except:
                 pass
 
@@ -416,13 +416,13 @@ def promptVorbereitungGrosseAusgabe(
             try:
                 tx = Txt.liste
                 tx.remove(i18n.befehle2["v"])
-                Txt.liste = x
+                Txt.liste = tx
             except:
                 pass
             try:
                 tx = Txt.liste
                 tx.remove(i18n.befehle2["vielfache"])
-                Txt.liste = x
+                Txt.liste = tx
             except:
                 pass
     IsPureOnlyReTaCmd: bool = len(Txt.liste) > 0 and Txt.liste[0] == "reta"

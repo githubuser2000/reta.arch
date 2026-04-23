@@ -29,15 +29,17 @@ def _ensure_runtime_dependencies() -> None:
         from orderedset import OrderedSet as ordered_set
     except (ModuleNotFoundError, ImportError):
         ordered_set = set
-    from center import DefaultOrderedDict as default_ordered_dict
-    from center import i18n as center_i18n
-    from center import nPmEnum as center_nPmEnum
+    from .runtime_compat import (
+        DefaultOrderedDict as default_ordered_dict,
+        i18n as runtime_i18n,
+        nPmEnum as runtime_nPmEnum,
+    )
 
     DefaultOrderedDict = default_ordered_dict
     OrderedSet = ordered_set
-    csvNames = center_i18n.csvFileNames
-    i18n = center_i18n.concat
-    nPmEnum = center_nPmEnum
+    csvNames = runtime_i18n.csvFileNames
+    i18n = runtime_i18n.concat
+    nPmEnum = runtime_nPmEnum
 
 
 @dataclass(frozen=True)

@@ -14,7 +14,7 @@ from copy import copy
 from dataclasses import dataclass
 from typing import Iterable, Union
 
-from center import (
+from .runtime_compat import (
     BereichToNumbers2,
     alxp,
     i18n,

@@ -28,14 +28,14 @@ def _ensure_runtime_dependencies() -> None:
     global i18n, htmlSyntax, bbCodeSyntax, shellRowsAmount
     if i18n is not None:
         return
-    from center import i18n as center_i18n
     from .output_syntax import bbCodeSyntax as bb_code_syntax, htmlSyntax as html_syntax
-    from lib4tables_prepare import shellRowsAmount as shell_rows_amount
+    from .runtime_compat import i18n as runtime_i18n
+    from .table_wrapping import get_shell_rows_amount
 
-    i18n = center_i18n
+    i18n = runtime_i18n
     htmlSyntax = html_syntax
     bbCodeSyntax = bb_code_syntax
-    shellRowsAmount = shell_rows_amount
+    shellRowsAmount = get_shell_rows_amount() or 0
 
 
 class KombiJoin:

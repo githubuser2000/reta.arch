@@ -41,6 +41,27 @@ Die Suite arbeitet jetzt in dieser Reihenfolge:
 Damit ist der letzte echte Umgebungsblocker aus der alten Restliste im normalen
 Repository-Checkout beseitigt.
 
+## Zusätzlich bereinigt: keine Architektur-Rückimporte mehr in die Legacy-Fassaden
+
+Die neue Architektur importiert ihre Runtime-Helfer jetzt nicht mehr aus
+`libs/center.py`, `libs/lib4tables_prepare.py` oder
+`libs/lib4tables_concat.py`. Stattdessen liegen die letzten Kompatibilitätsnamen
+und Adapter innerhalb des Architekturpakets selbst:
+
+- `reta_architecture/runtime_compat.py` bündelt i18n-, Range-, Arithmetik- und
+  Console-Helfer architekturintern
+- `reta_architecture/table_adapters.py` enthält die dünnen Architektur-Adapter
+  für die früheren Klassen `Prepare` und `Concat`
+- die betroffenen Architekturmodule (`row_filtering.py`, `prompt_execution.py`,
+  `prompt_preparation.py`, `parameter_runtime.py`, `table_output.py`,
+  `generated_columns.py`, `meta_columns.py`, `concat_csv.py`, `combi_join.py`,
+  `table_wrapping.py`, `table_runtime.py`) greifen nur noch auf Architekturcode
+  zu
+
+Praktisch heißt das: Die neue Schicht hängt nicht mehr rückwärts an den alten
+Wrapperdateien. Die Legacy-Dateien bleiben nur noch als optionale äußere
+Kompatibilitätsoberfläche erhalten.
+
 ## Was jetzt noch bleibt
 
 Nur noch optionale Nacharbeiten, keine Pflichtpunkte des Migrationsplans:

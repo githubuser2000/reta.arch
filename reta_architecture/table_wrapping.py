@@ -47,7 +47,7 @@ def refresh_textwrap_runtime(wrapping_type: Wraptype | None = None) -> TextWrapR
     """Refresh the wrapping runtime from the legacy center provider."""
     global _RUNTIME
     try:
-        from center import getTextWrapThings
+        from .runtime_compat import getTextWrapThings
 
         shell_rows_amount, h_de, dic, fill = getTextWrapThings()
     except Exception:
