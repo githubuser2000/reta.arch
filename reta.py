@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "libs"))
 
 from center import i18n, retaHilfe, infoLog
 from reta_architecture import ParameterSemanticsBuilder, RetaArchitecture
+from reta_architecture.parallel_execution import bootstrap_parallel_execution, extract_parallel_config_from_argv
 from reta_architecture.parameter_runtime import (
     apply_upper_limit_argument,
     apply_width_parameter,
@@ -136,16 +137,26 @@ class Program:
         Txt=None,
         runAlles=True,
     ):
-        self.argv = [a.strip() for a in argv]
+        raw_argv = [a.strip() for a in argv]
+        inherited_parallel_config = getattr(Txt, "parallel_config", None) if Txt is not None else None
+        self.argv, self.parallel_config = extract_parallel_config_from_argv(
+            raw_argv,
+            inherited=inherited_parallel_config,
+        )
         self.allesParameters = 0
         repo_root = Path(__file__).resolve().parent
         self.architecture = getattr(Txt, "architecture", None) or RetaArchitecture.bootstrap(repo_root)
+        self.architecture.parallel_execution = bootstrap_parallel_execution(self.parallel_config)
         if Txt is not None and getattr(Txt, "architecture", None) is None:
             Txt.architecture = self.architecture
+        if Txt is not None:
+            Txt.parallel_config = self.parallel_config
         self.tables = self.architecture.bootstrap_table_runtime().create_tables(
-            self.oberesMaximum2(argv[1:]), Txt
+            self.oberesMaximum2(self.argv[1:]), Txt
         )
         self.tables.architecture = self.architecture
+        self.tables.parallel_config = self.parallel_config
+        self.tables.getPrepare.parallel_config = self.parallel_config
 
         self.breiteHasBeenOnceZero = False
         self.obZeilenBereicheAngegeben = False

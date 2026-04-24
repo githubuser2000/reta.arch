@@ -3,10 +3,12 @@ from __future__ import annotations
 import ast
 import gc
 import io
+import multiprocessing
 import sys
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from types import SimpleNamespace
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -58,6 +60,7 @@ from reta_architecture.architecture_migration import ArchitectureMigrationBundle
 from reta_architecture.architecture_rehearsal import ArchitectureRehearsalBundle  # noqa: E402
 from reta_architecture.architecture_activation import ArchitectureActivationBundle  # noqa: E402
 from reta_architecture.architecture_progress import ArchitectureProgressBundle  # noqa: E402
+from reta_architecture.parallel_execution import ParallelExecutionBundle, ParallelExecutionConfig, extract_parallel_config_from_argv  # noqa: E402
 from reta_architecture.row_ranges import RowRangeMorphismBundle  # noqa: E402
 from reta_architecture.arithmetic import ArithmeticMorphismBundle  # noqa: E402
 from reta_architecture.console_io import ConsoleIOMorphismBundle  # noqa: E402
@@ -541,7 +544,79 @@ class ArchitectureRefactorRegressionTest(unittest.TestCase):
         self.assertEqual(snapshot["tag_gluing_morphism"], "tag_output_column")
         self.assertIn("prepare_main_output", snapshot["universal_operations"])
         self.assertIn("prepare_kombi_output", snapshot["universal_operations"])
+        self.assertIn("process_parallel_row_chunks", snapshot["universal_operations"])
+        self.assertEqual(snapshot["parallel_row_morphism"], "prepare_rows_in_processes")
         self.assertTrue(hasattr(self.architecture, "table_preparation"))
+
+    def test_parallel_execution_layer_is_explicit_and_argv_driven(self):
+        parallel_execution = self.architecture.bootstrap_parallel_execution()
+        snapshot = parallel_execution.snapshot()
+        self.assertIsInstance(parallel_execution, ParallelExecutionBundle)
+        self.assertEqual(snapshot["class"], "ParallelExecutionBundle")
+        self.assertEqual(snapshot["strategy"], "process_chunked_row_preparation")
+        argv, config = extract_parallel_config_from_argv([
+            "reta.py",
+            "--parallel=processes",
+            "--parallel-workers=2",
+            "--parallel-chunk-size=1",
+        ])
+        self.assertEqual(argv, ["reta.py"])
+        self.assertIsInstance(config, ParallelExecutionConfig)
+        self.assertEqual(config.mode, "processes")
+        self.assertEqual(config.workers, 2)
+        self.assertEqual(config.chunk_size, 1)
+
+    def test_parallel_row_preparation_matches_serial_result(self):
+        if "fork" not in multiprocessing.get_all_start_methods():
+            self.skipTest("process-row parity check requires fork for this lightweight fixture")
+        from reta_architecture.table_preparation import prepare_output_table
+
+        class FakePrepare:
+            def __init__(self, parallel_config):
+                self.tables = SimpleNamespace(
+                    generatedSpaltenParameter={},
+                    generatedSpaltenParameter_Tags={},
+                    dataDict=[{}],
+                )
+                self.hoechsteZeile = {1024: 2}
+                self.originalLinesRange = range(3)
+                self.shellRowsAmount = 0
+                self.rowsAsNumbers = {0, 1}
+                self.breiten = []
+                self.textwidth = 0
+                self.religionNumbers = []
+                self.ifZeilenSetted = False
+                self.parallel_config = parallel_config
+
+            def FilterOriginalLines(self, numRange, paramLines):
+                return set(numRange)
+
+            def setWidth(self, rowToDisplay, combiRows1=0):
+                return 0
+
+            def wrapping(self, text, length):
+                return None
+
+        content_table = [
+            ["A", "B", "C"],
+            ["alpha", "beta", "skip"],
+            ["gamma", "delta", "skip"],
+        ]
+        serial_prepare = FakePrepare(ParallelExecutionConfig(mode="off"))
+        parallel_prepare = FakePrepare(
+            ParallelExecutionConfig(
+                mode="processes",
+                workers=2,
+                chunk_size=1,
+                threshold=1,
+                start_method="fork",
+            )
+        )
+        serial_result = prepare_output_table(serial_prepare, set(), set(), content_table, {0, 1}, {})
+        parallel_result = prepare_output_table(parallel_prepare, set(), set(), content_table, {0, 1}, {})
+        self.assertEqual(parallel_result, serial_result)
+        self.assertEqual(parallel_prepare.religionNumbers, serial_prepare.religionNumbers)
+        self.assertEqual(parallel_prepare.parallel_last_result["class"], "ParallelRowsResult")
 
     def test_table_generation_layer_is_explicit(self):
         table_generation = self.architecture.bootstrap_table_generation(csv_file_names=center.i18n.csvFileNames)
@@ -586,6 +661,7 @@ class ArchitectureRefactorRegressionTest(unittest.TestCase):
         self.assertIn("prepare_kombi_output", program_workflow_source)
         self.assertIn("capture_last_line_number", table_generation_source)
         self.assertIn("def prepare_output_table", table_preparation_source)
+        self.assertIn("prepare_rows_in_processes", table_preparation_source)
         self.assertIn("def tag_output_column", table_preparation_source)
         self.assertLess(prepare_source.count("lib4tables_Enum.tableTags2"), table_preparation_source.count("lib4tables_Enum.tableTags2"))
 

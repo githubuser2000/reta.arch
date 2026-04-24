@@ -33,6 +33,7 @@ REQUIRED_SOURCE_PATHS = (
     "reta_architecture/architecture_rehearsal.py",
     "reta_architecture/architecture_activation.py",
     "reta_architecture/architecture_progress.py",
+    "reta_architecture/parallel_execution.py",
     "reta_architecture/schema.py",
     "reta_architecture/tag_schema.py",
     "reta_architecture/semantics_builder.py",

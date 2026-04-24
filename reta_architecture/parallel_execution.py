@@ -1,0 +1,401 @@
+from __future__ import annotations
+
+"""Process-based parallel row preparation for Reta.
+
+The Reta table builders are intentionally mutable while columns are generated.
+That phase is kept serial.  This module parallelises the later, deterministic
+row/cell preparation phase by sending already-selected rows to worker processes
+and gluing the chunks back in source order.
+"""
+
+import multiprocessing
+import os
+import platform
+from dataclasses import dataclass, replace
+from typing import Iterable, Sequence
+
+_OFF_VALUES = {"", "0", "off", "false", "no", "none", "serial", "single"}
+_AUTO_VALUES = {"auto", "pypy", "pypy3"}
+_PROCESS_VALUES = {"1", "on", "true", "yes", "process", "processes", "multiprocess", "multiprocessing", "mp"}
+
+
+def _normalise_mode(value: object | None) -> str:
+    if value is None:
+        return "auto"
+    mode = str(value).strip().lower()
+    if mode in _OFF_VALUES:
+        return "off"
+    if mode in _PROCESS_VALUES:
+        return "processes"
+    if mode in _AUTO_VALUES:
+        return "auto"
+    return mode or "auto"
+
+
+def _positive_int(value: object | None, default: int | None = None) -> int | None:
+    if value is None or value == "":
+        return default
+    try:
+        parsed = int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
+def is_pypy_runtime() -> bool:
+    """Return whether the current interpreter is PyPy/PyPy3."""
+    return platform.python_implementation().lower() == "pypy" or "__pypy__" in getattr(__import__("sys"), "builtin_module_names", ())
+
+
+@dataclass(frozen=True)
+class ParallelExecutionConfig:
+    """Runtime switch for process-parallel row generation.
+
+    ``mode='auto'`` is intentionally conservative on CPython and active on
+    PyPy.  CPython users can still force process parallelism with
+    ``--parallel=processes`` or ``RETA_PARALLEL=processes``.
+    """
+
+    mode: str = "auto"
+    workers: int | None = None
+    chunk_size: int = 64
+    threshold: int = 128
+    start_method: str | None = None
+    source: str = "defaults"
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "mode", _normalise_mode(self.mode))
+        object.__setattr__(self, "workers", _positive_int(self.workers, None))
+        object.__setattr__(self, "chunk_size", _positive_int(self.chunk_size, 64) or 64)
+        object.__setattr__(self, "threshold", _positive_int(self.threshold, 128) or 128)
+        if self.start_method in {"", "default", "none", None}:
+            object.__setattr__(self, "start_method", None)
+
+    @classmethod
+    def from_environment(cls) -> "ParallelExecutionConfig":
+        mode = os.environ.get("RETA_PARALLEL_MODE", os.environ.get("RETA_PARALLEL", "auto"))
+        return cls(
+            mode=mode,
+            workers=_positive_int(os.environ.get("RETA_PARALLEL_WORKERS"), None),
+            chunk_size=_positive_int(os.environ.get("RETA_PARALLEL_CHUNK_SIZE"), 64) or 64,
+            threshold=_positive_int(os.environ.get("RETA_PARALLEL_THRESHOLD"), 128) or 128,
+            start_method=os.environ.get("RETA_PARALLEL_START_METHOD") or None,
+            source="environment" if "RETA_PARALLEL" in os.environ or "RETA_PARALLEL_MODE" in os.environ else "defaults",
+        )
+
+    def with_overrides(self, **kwargs) -> "ParallelExecutionConfig":
+        return replace(self, **{key: value for key, value in kwargs.items() if value is not None})
+
+    @property
+    def resolved_workers(self) -> int:
+        if self.workers is not None and self.workers > 0:
+            return self.workers
+        return max(1, os.cpu_count() or 1)
+
+    @property
+    def enabled_by_mode(self) -> bool:
+        if self.mode == "off":
+            return False
+        if self.mode == "auto":
+            return is_pypy_runtime()
+        return self.mode in _PROCESS_VALUES or self.mode == "processes"
+
+    def should_use_processes(self, row_count: int) -> bool:
+        return bool(
+            self.enabled_by_mode
+            and self.resolved_workers > 1
+            and row_count >= self.threshold
+            and self.chunk_size > 0
+        )
+
+    def snapshot(self) -> dict:
+        return {
+            "class": type(self).__name__,
+            "mode": self.mode,
+            "enabled_by_mode": self.enabled_by_mode,
+            "workers": self.workers,
+            "resolved_workers": self.resolved_workers,
+            "chunk_size": self.chunk_size,
+            "threshold": self.threshold,
+            "start_method": self.start_method,
+            "runtime": platform.python_implementation(),
+            "source": self.source,
+        }
+
+
+@dataclass(frozen=True)
+class ParallelRowsResult:
+    rows: list
+    religion_numbers: list[int]
+    workers: int
+    chunks: int
+    row_count: int
+    config: ParallelExecutionConfig
+
+    def snapshot(self) -> dict:
+        return {
+            "class": type(self).__name__,
+            "rows": len(self.rows),
+            "religion_numbers": len(self.religion_numbers),
+            "workers": self.workers,
+            "chunks": self.chunks,
+            "row_count": self.row_count,
+            "config": self.config.snapshot(),
+        }
+
+
+@dataclass(frozen=True)
+class ParallelExecutionBundle:
+    config: ParallelExecutionConfig
+
+    def snapshot(self) -> dict:
+        return {
+            "class": type(self).__name__,
+            "strategy": "process_chunked_row_preparation",
+            "config": self.config.snapshot(),
+            "morphisms": [
+                "extract_parallel_config_from_argv",
+                "prepare_rows_in_processes",
+                "glue_parallel_row_chunks",
+            ],
+            "default_policy": "auto_on_pypy_off_on_cpython",
+        }
+
+
+def bootstrap_parallel_execution(config: ParallelExecutionConfig | None = None) -> ParallelExecutionBundle:
+    return ParallelExecutionBundle(config=config or ParallelExecutionConfig.from_environment())
+
+
+def _consume_value(argv: Sequence[str], index: int) -> tuple[str | None, int]:
+    next_index = index + 1
+    if next_index < len(argv) and not str(argv[next_index]).startswith("-"):
+        return str(argv[next_index]), 1
+    return None, 0
+
+
+def extract_parallel_config_from_argv(
+    argv: Sequence[str],
+    inherited: ParallelExecutionConfig | None = None,
+) -> tuple[list[str], ParallelExecutionConfig]:
+    """Strip Reta-internal parallel flags from argv and return the runtime config."""
+    base = inherited or ParallelExecutionConfig.from_environment()
+    overrides: dict[str, object] = {}
+    clean: list[str] = []
+    skip = 0
+    recognised = False
+    argv_list = [str(arg).strip() for arg in argv]
+    for index, arg in enumerate(argv_list):
+        if skip:
+            skip -= 1
+            continue
+        if arg == "--no-parallel":
+            overrides["mode"] = "off"
+            recognised = True
+            continue
+        if arg == "--parallel":
+            overrides["mode"] = "processes"
+            recognised = True
+            continue
+        if arg.startswith("--parallel="):
+            overrides["mode"] = arg.split("=", 1)[1]
+            recognised = True
+            continue
+        if arg in {"--parallel-workers", "--parallel-worker", "--parallel-prozesse"}:
+            value, consumed = _consume_value(argv_list, index)
+            overrides["workers"] = _positive_int(value, base.workers)
+            skip = consumed
+            recognised = True
+            continue
+        if arg.startswith("--parallel-workers=") or arg.startswith("--parallel-worker=") or arg.startswith("--parallel-prozesse="):
+            overrides["workers"] = _positive_int(arg.split("=", 1)[1], base.workers)
+            recognised = True
+            continue
+        if arg in {"--parallel-chunk-size", "--parallel-chunksize", "--parallel-chunk"}:
+            value, consumed = _consume_value(argv_list, index)
+            overrides["chunk_size"] = _positive_int(value, base.chunk_size)
+            skip = consumed
+            recognised = True
+            continue
+        if arg.startswith("--parallel-chunk-size=") or arg.startswith("--parallel-chunksize=") or arg.startswith("--parallel-chunk="):
+            overrides["chunk_size"] = _positive_int(arg.split("=", 1)[1], base.chunk_size)
+            recognised = True
+            continue
+        if arg in {"--parallel-threshold", "--parallel-min-rows"}:
+            value, consumed = _consume_value(argv_list, index)
+            overrides["threshold"] = _positive_int(value, base.threshold)
+            skip = consumed
+            recognised = True
+            continue
+        if arg.startswith("--parallel-threshold=") or arg.startswith("--parallel-min-rows="):
+            overrides["threshold"] = _positive_int(arg.split("=", 1)[1], base.threshold)
+            recognised = True
+            continue
+        if arg in {"--parallel-start-method", "--parallel-start"}:
+            value, consumed = _consume_value(argv_list, index)
+            overrides["start_method"] = value
+            skip = consumed
+            recognised = True
+            continue
+        if arg.startswith("--parallel-start-method=") or arg.startswith("--parallel-start="):
+            overrides["start_method"] = arg.split("=", 1)[1]
+            recognised = True
+            continue
+        clean.append(arg)
+    config = base.with_overrides(**overrides)
+    if recognised:
+        config = config.with_overrides(source="argv")
+    return clean, config
+
+
+def apply_parallel_environment(config: ParallelExecutionConfig) -> None:
+    """Expose an argv-derived config to nested prompt-triggered Reta calls."""
+    os.environ["RETA_PARALLEL_MODE"] = config.mode
+    os.environ["RETA_PARALLEL_CHUNK_SIZE"] = str(config.chunk_size)
+    os.environ["RETA_PARALLEL_THRESHOLD"] = str(config.threshold)
+    if config.workers is not None:
+        os.environ["RETA_PARALLEL_WORKERS"] = str(config.workers)
+    if config.start_method is not None:
+        os.environ["RETA_PARALLEL_START_METHOD"] = str(config.start_method)
+
+
+def _chunks(items: Sequence, chunk_size: int) -> Iterable[list]:
+    for index in range(0, len(items), chunk_size):
+        yield list(items[index : index + chunk_size])
+
+
+def _default_start_method(config: ParallelExecutionConfig) -> str | None:
+    if config.start_method:
+        return config.start_method
+    if os.name != "nt" and "fork" in multiprocessing.get_all_start_methods():
+        return "fork"
+    return None
+
+
+def _prepare_row_chunk_worker(payload):
+    rows, context = payload
+    from .table_preparation import prepare_row_cells
+    from .table_wrapping import Wraptype, refresh_textwrap_runtime, width_for_row, wrap_cell_text
+
+    wrapping_type_name = context.get("wrapping_type_name") or "pyhyphen"
+    try:
+        wrapping_type = Wraptype[wrapping_type_name]
+    except Exception:
+        wrapping_type = Wraptype.pyhyphen
+    refresh_textwrap_runtime(wrapping_type=wrapping_type)
+
+    class WorkerPrepare:
+        def __init__(self, ctx):
+            self.rowsAsNumbers = set(ctx["rows_as_numbers"])
+            self.shellRowsAmount = ctx["shell_rows_amount"]
+            self.breiten = list(ctx["breiten"])
+            self.textwidth = ctx["textwidth"]
+            self.religionNumbers = []
+
+        def setWidth(self, rowToDisplay: int, combiRows1: int = 0) -> int:
+            return width_for_row(self, rowToDisplay, combiRows1)
+
+        def wrapping(self, text: str, length: int):
+            return wrap_cell_text(text, length, wrapping_type=wrapping_type)
+
+    worker_prepare = WorkerPrepare(context)
+    old2_rows = ({}, {})
+    prepared_rows = []
+    rows_as_numbers = set(context["rows_as_numbers"])
+    for u, line in rows:
+        new_row = prepare_row_cells(
+            worker_prepare,
+            context["combi_rows"],
+            {},
+            context["headings_amount"],
+            line,
+            old2_rows,
+            None,
+            context["religion_numbers_bool"],
+            context["reli_table_len_until_now"],
+            rows_as_numbers,
+            u,
+            kombiCSVNumber=context["kombi_csv_number"],
+        )
+        if new_row != []:
+            prepared_rows.append((u, new_row))
+    return prepared_rows, list(worker_prepare.religionNumbers)
+
+
+def _parallel_context_from_prepare(
+    prepare,
+    rows_as_numbers: set,
+    combi_rows: int,
+    headings_amount: int,
+    religion_numbers_bool: bool,
+    reli_table_len_until_now,
+    kombi_csv_number: int,
+) -> dict:
+    try:
+        from .table_wrapping import get_wrapping_type
+
+        wrapping_type_name = get_wrapping_type().name
+    except Exception:
+        wrapping_type_name = "pyhyphen"
+    return {
+        "rows_as_numbers": tuple(rows_as_numbers),
+        "combi_rows": combi_rows,
+        "headings_amount": headings_amount,
+        "shell_rows_amount": getattr(prepare, "shellRowsAmount", None),
+        "breiten": tuple(getattr(prepare, "breiten", [])),
+        "textwidth": getattr(prepare, "textwidth", getattr(prepare, "textWidth", 21)),
+        "wrapping_type_name": wrapping_type_name,
+        "religion_numbers_bool": bool(religion_numbers_bool),
+        "reli_table_len_until_now": reli_table_len_until_now,
+        "kombi_csv_number": kombi_csv_number,
+    }
+
+
+def prepare_rows_in_processes(
+    prepare,
+    rows: Sequence[tuple[int, list]],
+    *,
+    rows_as_numbers: set,
+    combi_rows: int,
+    headings_amount: int,
+    religion_numbers_bool: bool,
+    reli_table_len_until_now=None,
+    kombi_csv_number: int = 0,
+    config: ParallelExecutionConfig | None = None,
+) -> ParallelRowsResult | None:
+    """Prepare selected non-header rows in process chunks, or return ``None``."""
+    config = config or getattr(prepare, "parallel_config", None) or ParallelExecutionConfig.from_environment()
+    row_count = len(rows)
+    if not config.should_use_processes(row_count):
+        return None
+    workers = min(config.resolved_workers, max(1, row_count))
+    chunks = list(_chunks(list(rows), config.chunk_size))
+    if len(chunks) <= 1:
+        return None
+    context = _parallel_context_from_prepare(
+        prepare,
+        rows_as_numbers=rows_as_numbers,
+        combi_rows=combi_rows,
+        headings_amount=headings_amount,
+        religion_numbers_bool=religion_numbers_bool,
+        reli_table_len_until_now=reli_table_len_until_now,
+        kombi_csv_number=kombi_csv_number,
+    )
+    payloads = [(chunk, context) for chunk in chunks]
+    start_method = _default_start_method(config)
+    ctx = multiprocessing.get_context(start_method) if start_method else multiprocessing.get_context()
+    with ctx.Pool(processes=workers) as pool:
+        chunk_results = pool.map(_prepare_row_chunk_worker, payloads)
+    prepared_pairs: list[tuple[int, list]] = []
+    religion_numbers: list[int] = []
+    for rows_result, religion_numbers_result in chunk_results:
+        prepared_pairs.extend(rows_result)
+        religion_numbers.extend(religion_numbers_result)
+    prepared_pairs.sort(key=lambda item: item[0])
+    return ParallelRowsResult(
+        rows=[row for _u, row in prepared_pairs],
+        religion_numbers=religion_numbers,
+        workers=workers,
+        chunks=len(chunks),
+        row_count=row_count,
+        config=config,
+    )

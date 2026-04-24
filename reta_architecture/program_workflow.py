@@ -320,6 +320,7 @@ class ProgramWorkflowBundle:
                 "bind_column_sections",
                 "build_generated_tables",
                 "prepare_output_table_via_table_preparation",
+                "prepare_rows_in_process_chunks_when_enabled",
                 "join_kombi_tables",
                 "render_cli_output",
             ],

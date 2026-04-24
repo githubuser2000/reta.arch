@@ -43,6 +43,7 @@ from .architecture_migration import ArchitectureMigrationBundle, bootstrap_archi
 from .architecture_rehearsal import ArchitectureRehearsalBundle, bootstrap_architecture_rehearsal
 from .architecture_activation import ArchitectureActivationBundle, bootstrap_architecture_activation
 from .architecture_progress import ArchitectureProgressBundle, bootstrap_architecture_progress
+from .parallel_execution import ParallelExecutionBundle, bootstrap_parallel_execution
 
 
 _ARCHITECTURE_BOOTSTRAP_CACHE: dict[Path, "RetaArchitecture"] = {}
@@ -78,6 +79,7 @@ class RetaArchitecture:
     architecture_rehearsal: ArchitectureRehearsalBundle
     architecture_activation: ArchitectureActivationBundle
     architecture_progress: ArchitectureProgressBundle
+    parallel_execution: ParallelExecutionBundle
     column_selection: ColumnSelectionBundle
     parameter_runtime: ParameterRuntimeBundle
     program_workflow: ProgramWorkflowBundle
@@ -194,6 +196,7 @@ class RetaArchitecture:
             architecture_migration=architecture_migration,
             architecture_activation=architecture_activation,
         )
+        parallel_execution = bootstrap_parallel_execution()
         architecture_validation = bootstrap_architecture_validation(
             repo_root=repo_root,
             category_theory=category_theory,
@@ -263,6 +266,7 @@ class RetaArchitecture:
             architecture_rehearsal=architecture_rehearsal,
             architecture_activation=architecture_activation,
             architecture_progress=architecture_progress,
+            parallel_execution=parallel_execution,
             column_selection=column_selection,
             parameter_runtime=parameter_runtime,
             program_workflow=program_workflow,
@@ -526,6 +530,11 @@ class RetaArchitecture:
             architecture_activation=self.bootstrap_architecture_activation(),
         )
 
+    def bootstrap_parallel_execution(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.parallel_execution
+        return bootstrap_parallel_execution()
+
     def bootstrap_architecture_validation(self, force_rebuild: bool = False):
         if not force_rebuild:
             return self.architecture_validation
@@ -678,4 +687,5 @@ class RetaArchitecture:
             "architecture_rehearsal": self.bootstrap_architecture_rehearsal().snapshot(),
             "architecture_activation": self.bootstrap_architecture_activation().snapshot(),
             "architecture_progress": self.bootstrap_architecture_progress().snapshot(),
+            "parallel_execution": self.bootstrap_parallel_execution().snapshot(),
         }

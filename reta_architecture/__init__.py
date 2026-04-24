@@ -149,6 +149,17 @@ from .architecture_activation import (
     bootstrap_architecture_activation,
 )
 
+from .parallel_execution import (
+    ParallelExecutionBundle,
+    ParallelExecutionConfig,
+    ParallelRowsResult,
+    apply_parallel_environment,
+    bootstrap_parallel_execution,
+    extract_parallel_config_from_argv,
+    is_pypy_runtime,
+    prepare_rows_in_processes,
+)
+
 from .architecture_progress import (
     ArchitectureProgressBundle,
     LegacySurfaceProgressSpec,

@@ -68,7 +68,14 @@ def prepare_output_table(
     primSpalten: set = None,
     kombiCSVNumber: int = 0,
 ) -> tuple:
-    """Legacy-kompatible Orchestrierung von ``Prepare.prepare4out``."""
+    """Legacy-kompatible Orchestrierung von ``Prepare.prepare4out``.
+
+    Die Header-/Tag-Zeile bleibt seriell, weil sie die globalen
+    ``generatedSpaltenParameter`` füllt. Die danach unabhängigen Datenzeilen
+    können bei PyPy3 oder bei expliziter Aktivierung chunkweise in
+    Multiprocessing-Workern vorbereitet und anschließend deterministisch
+    zusammengeklebt werden.
+    """
     (
         finallyDisplayLines,
         headingsAmount,
@@ -80,8 +87,70 @@ def prepare_output_table(
     prepare.headingsAmount = headingsAmount
     old2Rows: tuple = ({}, {})
     reliNumbersBool = False if prepare.religionNumbers != [] else True
+
+    selected_non_header_rows: list[tuple[int, list]] = []
     for u, line in enumerate(contentTable):
         if u in finallyDisplayLines or combiRows != 0:
+            if u == 0:
+                new2Lines = prepare_row_cells(
+                    prepare,
+                    combiRows,
+                    gebrSpalten,
+                    headingsAmount,
+                    line,
+                    old2Rows,
+                    primSpalten,
+                    reliNumbersBool,
+                    reliTableLenUntilNow,
+                    rowsAsNumbers,
+                    u,
+                    kombiCSVNumber=kombiCSVNumber,
+                )
+                if new2Lines != []:
+                    newerTable += [new2Lines]
+            else:
+                selected_non_header_rows.append((u, line))
+
+    parallel_result = None
+    if selected_non_header_rows:
+        try:
+            from .parallel_execution import (
+                ParallelExecutionConfig,
+                prepare_rows_in_processes,
+            )
+
+            config = getattr(prepare, "parallel_config", None) or ParallelExecutionConfig.from_environment()
+            parallel_result = prepare_rows_in_processes(
+                prepare,
+                selected_non_header_rows,
+                rows_as_numbers=rowsAsNumbers,
+                combi_rows=combiRows,
+                headings_amount=headingsAmount,
+                religion_numbers_bool=reliNumbersBool,
+                reli_table_len_until_now=reliTableLenUntilNow,
+                kombi_csv_number=kombiCSVNumber,
+                config=config,
+            )
+        except Exception as exc:  # pragma: no cover - Fallback protects CLI parity.
+            parallel_result = None
+            try:
+                prepare.parallel_last_result = {
+                    "mode": "serial_fallback",
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            except Exception:
+                pass
+
+    if parallel_result is not None:
+        newerTable += parallel_result.rows
+        if reliNumbersBool and isinstance(prepare.religionNumbers, list):
+            prepare.religionNumbers += parallel_result.religion_numbers
+        try:
+            prepare.parallel_last_result = parallel_result.snapshot()
+        except Exception:
+            pass
+    else:
+        for u, line in selected_non_header_rows:
             new2Lines = prepare_row_cells(
                 prepare,
                 combiRows,
@@ -99,6 +168,14 @@ def prepare_output_table(
 
             if new2Lines != []:
                 newerTable += [new2Lines]
+        try:
+            if not hasattr(prepare, "parallel_last_result"):
+                prepare.parallel_last_result = {
+                    "mode": "serial",
+                    "rows": len(selected_non_header_rows),
+                }
+        except Exception:
+            pass
 
     return finallyDisplayLines, newerTable, numlen, rowsRange, old2Rows
 
@@ -378,6 +455,7 @@ class TablePreparationBundle:
             "row_morphism": "prepare_row_cells",
             "tag_gluing_morphism": "tag_output_column",
             "cell_morphism": "cell_work",
+            "parallel_row_morphism": "prepare_rows_in_processes",
             "deduplication_morphism": "deduplicate_parameter_sections",
             "last_line_morphism": "capture_last_line_number",
             "universal_operations": [
@@ -385,6 +463,7 @@ class TablePreparationBundle:
                 "capture_last_line_number",
                 "prepare_main_output",
                 "prepare_kombi_output",
+                "process_parallel_row_chunks",
             ],
             "main_table_result": "MainTablePreparationResult",
             "kombi_table_result": "KombiTablePreparationResult",

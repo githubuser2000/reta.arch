@@ -19,13 +19,19 @@ from center import BereichToNumbers2, cliout, i18n, isZeilenAngabe, retaPromptHi
 from LibRetaPrompt import completionRuntime, gebrochenErlaubteZahlen, promptRuntime, promptSession, wahl15, wahl16
 from nestedAlx import ComplSitua, NestedCompleter
 from reta_architecture import PromptModus, PromptTextState
+from reta_architecture.parallel_execution import apply_parallel_environment, bootstrap_parallel_execution, extract_parallel_config_from_argv
 from reta_architecture.prompt_execution import PromptGrosseAusgabe, bruchBereichsManagementAndWbefehl, retaExecuteNprint, zeiln1234create
 from reta_architecture.prompt_interaction import PromptInteractionBundle, bootstrap_prompt_interaction
 
 
+sys.argv, prompt_parallel_config = extract_parallel_config_from_argv(sys.argv)
+apply_parallel_environment(prompt_parallel_config)
+
 i18nRP = i18n.retaPrompt
 retaProgram = promptRuntime.program
+retaProgram.parallel_config = prompt_parallel_config
 architecture = retaProgram.architecture
+architecture.parallel_execution = bootstrap_parallel_execution(prompt_parallel_config)
 promptPreparation = architecture.bootstrap_prompt_preparation(i18n=i18n)
 promptExecution = architecture.bootstrap_prompt_execution(i18n=i18n)
 promptInteraction = bootstrap_prompt_interaction(

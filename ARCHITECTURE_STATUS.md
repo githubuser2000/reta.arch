@@ -1,5 +1,5 @@
 # Reta Architekturstatus (aktuell)
-Stand: 2026-04-23
+Stand: 2026-04-24
 
 ## Kurzfazit
 
@@ -14,6 +14,7 @@ verbleibende Pflicht-Baustellen im Migrationsplan.
 - Wellenstatus: **M0–M6 alle `implemented_or_retained`**
 - gemischte Owner: **keine mehr**
 - Paketintegrität: **keine fehlenden Pflichtpfade**
+- Parallelisierung: **prozessbasierte Zeilen-Chunk-Schicht vorhanden**
 
 ## Seit der alten Restliste geschlossen
 
@@ -62,6 +63,23 @@ Praktisch heißt das: Die neue Schicht hängt nicht mehr rückwärts an den alte
 Wrapperdateien. Die Legacy-Dateien bleiben nur noch als optionale äußere
 Kompatibilitätsoberfläche erhalten.
 
+
+## Seit 2026-04-24 ergänzt: prozessbasierte Chunk-Parallelisierung
+
+Für PyPy3 wurde eine optionale Multiprocessing-Schicht ergänzt. Sie
+parallelisiert nicht den mutierenden CSV-/Spaltenaufbau, sondern die spätere
+deterministische Zeilen-/Zellenvorbereitung in Chunks. Die Header-/Tag-Zeile
+bleibt seriell; Datenzeilen werden bei aktivierter Config in Worker-Prozessen
+berechnet und im Hauptprozess in Originalreihenfolge zusammengeklebt.
+
+Neu ist `reta_architecture/parallel_execution.py`, eingebunden als
+`ParallelExecutionBundle`. `reta.py` und `retaPrompt.py` akzeptieren jetzt u. a.
+`--parallel=processes`, `--parallel-workers=N`, `--parallel-chunk-size=N`,
+`--parallel-threshold=N` und `--no-parallel`. Im Standardmodus ist die
+Parallelisierung auf PyPy/PyPy3 automatisch ab Threshold aktiv; auf CPython
+bleibt sie ohne explizite Aktivierung aus. Details stehen in
+`PARALLEL_PROCESSING_2026-04-24.md`.
+
 ## Was jetzt noch bleibt
 
 Nur noch optionale Nacharbeiten, keine Pflichtpunkte des Migrationsplans:
@@ -89,9 +107,10 @@ Aktuell verifiziert:
 
 Zusätzlich erfolgreich ausgeführt:
 
-- `python -m py_compile tests/test_command_parity.py tests/test_architecture_refactor.py reta_architecture/architecture_progress.py`
-- `python -m unittest tests.test_command_parity.CommandParityMatrixTest.test_representative_command_matrix_matches_original -v`
-- `python -m unittest tests.test_architecture_refactor.ArchitectureRefactorRegressionTest.test_architecture_progress_layer_is_explicit -v`
+- `/usr/bin/python3 -m compileall -q reta.py retaPrompt.py reta_architecture tests`
+- `/usr/bin/python3 -m unittest tests.test_architecture_refactor -v` → **67 Tests OK**
+- `/usr/bin/python3 -m unittest tests.test_command_parity -v` → **1 Test OK**
+- CLI-Paritätsprobe: serieller Lauf und erzwungener Prozesslauf mit `--parallel=processes --parallel-workers=2 --parallel-chunk-size=1 --parallel-threshold=1` erzeugen identische Ausgabe
 
 ## Praktische Lesart
 
