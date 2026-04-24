@@ -6,6 +6,7 @@ import io
 import multiprocessing
 import sys
 import unittest
+from collections import OrderedDict
 from contextlib import redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
@@ -60,7 +61,18 @@ from reta_architecture.architecture_migration import ArchitectureMigrationBundle
 from reta_architecture.architecture_rehearsal import ArchitectureRehearsalBundle  # noqa: E402
 from reta_architecture.architecture_activation import ArchitectureActivationBundle  # noqa: E402
 from reta_architecture.architecture_progress import ArchitectureProgressBundle  # noqa: E402
-from reta_architecture.parallel_execution import ParallelExecutionBundle, ParallelExecutionConfig, extract_parallel_config_from_argv  # noqa: E402
+from reta_architecture.parallel_execution import (  # noqa: E402
+    ParallelExecutionBundle,
+    ParallelExecutionConfig,
+    RETA_PARALLEL_PROCESSOR_CORES,
+    RETA_PROCESSOR_CORES,
+    decode_kombi_rows_in_processes,
+    decode_religion_rows_in_processes,
+    extract_parallel_config_from_argv,
+    max_cell_text_len_in_processes,
+    prepare_kombi_join_tables_in_processes,
+    select_columns_in_processes,
+)
 from reta_architecture.row_ranges import RowRangeMorphismBundle  # noqa: E402
 from reta_architecture.arithmetic import ArithmeticMorphismBundle  # noqa: E402
 from reta_architecture.console_io import ConsoleIOMorphismBundle  # noqa: E402
@@ -553,7 +565,13 @@ class ArchitectureRefactorRegressionTest(unittest.TestCase):
         snapshot = parallel_execution.snapshot()
         self.assertIsInstance(parallel_execution, ParallelExecutionBundle)
         self.assertEqual(snapshot["class"], "ParallelExecutionBundle")
-        self.assertEqual(snapshot["strategy"], "process_chunked_row_preparation")
+        self.assertEqual(snapshot["strategy"], "process_chunked_table_work")
+        self.assertIn("processor_cores", snapshot)
+        self.assertEqual(snapshot["default_workers"], RETA_PARALLEL_PROCESSOR_CORES)
+        self.assertGreaterEqual(RETA_PROCESSOR_CORES.virtual, RETA_PROCESSOR_CORES.physical)
+        self.assertIn("select_columns_in_processes", snapshot["morphisms"])
+        self.assertIn("max_cell_text_len_in_processes", snapshot["morphisms"])
+        self.assertIn("decode_religion_rows_in_processes", snapshot["morphisms"])
         argv, config = extract_parallel_config_from_argv([
             "reta.py",
             "--parallel=processes",
@@ -617,6 +635,48 @@ class ArchitectureRefactorRegressionTest(unittest.TestCase):
         self.assertEqual(parallel_result, serial_result)
         self.assertEqual(parallel_prepare.religionNumbers, serial_prepare.religionNumbers)
         self.assertEqual(parallel_prepare.parallel_last_result["class"], "ParallelRowsResult")
+
+    def test_more_parallel_table_helpers_match_serial_results(self):
+        if "fork" not in multiprocessing.get_all_start_methods():
+            self.skipTest("process helper parity check requires fork for this lightweight fixture")
+        config = ParallelExecutionConfig(
+            mode="processes",
+            workers=2,
+            chunk_size=1,
+            threshold=1,
+            start_method="fork",
+        )
+
+        religion_rows = [
+            (0, ["a<b", "|{\"\":\"plain\",\"html\":\"<b>html</b>\",\"bbcode\":\"[b]bb[/b]\"}|"]),
+            (1, ["plain", "cell"]),
+        ]
+        religion_result = decode_religion_rows_in_processes(religion_rows, "html", config=config)
+        self.assertEqual(religion_result.values[0], ["a&lt;b", "<b>html</b>"])
+
+        kombi_rows = [(0, ["Header", "Name"]), (1, ["1|2/3", "Hund"])]
+        kombi_result = decode_kombi_rows_in_processes(kombi_rows, config=config)
+        self.assertEqual(kombi_result.values[1][1], ["1|2/3", "(1|2/3) Hund (1|2/3)"])
+        self.assertEqual(kombi_result.values[1][2], [1, 2, 3])
+
+        table = [
+            [["a"], ["b"], ["c"]],
+            [["d"], ["e"], ["f"]],
+        ]
+        selected = select_columns_in_processes(table, [1, 3], config=config)
+        self.assertEqual(selected.values, [[["a"], ["c"]], [["d"], ["f"]]])
+
+        new_table = [
+            [["A", ""], ["long"]],
+            [["abc"], ["x", "yyyy"]],
+        ]
+        widths = max_cell_text_len_in_processes(new_table, range(2), config=config)
+        self.assertEqual(dict(widths.values), {0: 3, 1: 4})
+
+        chosen = OrderedDict(((2, [1]), (3, [0, 1])))
+        kombi_join = prepare_kombi_join_tables_in_processes(chosen, [["H"], ["A"]], config=config)
+        self.assertEqual(kombi_join.values[0], OrderedDict(((2, [["A"]]),)))
+        self.assertEqual(kombi_join.values[1], OrderedDict(((3, [["H"], ["A"]]),)))
 
     def test_table_generation_layer_is_explicit(self):
         table_generation = self.architecture.bootstrap_table_generation(csv_file_names=center.i18n.csvFileNames)

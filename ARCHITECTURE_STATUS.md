@@ -14,7 +14,7 @@ verbleibende Pflicht-Baustellen im Migrationsplan.
 - Wellenstatus: **M0–M6 alle `implemented_or_retained`**
 - gemischte Owner: **keine mehr**
 - Paketintegrität: **keine fehlenden Pflichtpfade**
-- Parallelisierung: **prozessbasierte Zeilen-Chunk-Schicht vorhanden**
+- Parallelisierung: **prozessbasierte Tabellen-/Zeilen-Chunk-Schicht vorhanden**
 
 ## Seit der alten Restliste geschlossen
 
@@ -66,18 +66,26 @@ Kompatibilitätsoberfläche erhalten.
 
 ## Seit 2026-04-24 ergänzt: prozessbasierte Chunk-Parallelisierung
 
-Für PyPy3 wurde eine optionale Multiprocessing-Schicht ergänzt. Sie
-parallelisiert nicht den mutierenden CSV-/Spaltenaufbau, sondern die spätere
-deterministische Zeilen-/Zellenvorbereitung in Chunks. Die Header-/Tag-Zeile
-bleibt seriell; Datenzeilen werden bei aktivierter Config in Worker-Prozessen
-berechnet und im Hauptprozess in Originalreihenfolge zusammengeklebt.
+Für PyPy3 wurde eine optionale Multiprocessing-Schicht ergänzt und danach
+erweitert. Sie parallelisiert weiterhin nicht die riskanten mutierenden
+Spalten-/Tag-Gluing-Stellen, sondern nur deterministische, chunkbare
+Tabellenarbeit:
 
-Neu ist `reta_architecture/parallel_execution.py`, eingebunden als
-`ParallelExecutionBundle`. `reta.py` und `retaPrompt.py` akzeptieren jetzt u. a.
-`--parallel=processes`, `--parallel-workers=N`, `--parallel-chunk-size=N`,
-`--parallel-threshold=N` und `--no-parallel`. Im Standardmodus ist die
-Parallelisierung auf PyPy/PyPy3 automatisch ab Threshold aktiv; auf CPython
-bleibt sie ohne explizite Aktivierung aus. Details stehen in
+- Religion-CSV-Zellendekodierung
+- Kombi-CSV-Zellenvorbereitung
+- Datenzeilen-/Zellenvorbereitung nach der Zeilenauswahl
+- Spaltenprojektion nach der Tabellenvorbereitung
+- maximale Zellbreiten-Scans vor der Ausgabe
+- Kombi-Join-Teiltabellenvorbereitung
+
+Neu ist außerdem eine globale Kernzahl-Schicht in
+`reta_architecture/parallel_execution.py`: `RETA_PROCESSOR_CORES` hält physische,
+virtuelle/logische und verfügbare Kernzahlen; `RETA_PARALLEL_PROCESSOR_CORES`
+ist der Default für Worker-Prozesse. `reta.py` und `retaPrompt.py` akzeptieren
+weiterhin u. a. `--parallel=processes`, `--parallel-workers=N`,
+`--parallel-chunk-size=N`, `--parallel-threshold=N` und `--no-parallel`. Im
+Standardmodus ist die Parallelisierung auf PyPy/PyPy3 automatisch ab Threshold
+aktiv; auf CPython bleibt sie ohne explizite Aktivierung aus. Details stehen in
 `PARALLEL_PROCESSING_2026-04-24.md`.
 
 ## Was jetzt noch bleibt
@@ -108,9 +116,9 @@ Aktuell verifiziert:
 Zusätzlich erfolgreich ausgeführt:
 
 - `/usr/bin/python3 -m compileall -q reta.py retaPrompt.py reta_architecture tests`
-- `/usr/bin/python3 -m unittest tests.test_architecture_refactor -v` → **67 Tests OK**
+- `/usr/bin/python3 -m unittest tests.test_architecture_refactor -v` → **68 Tests OK**
 - `/usr/bin/python3 -m unittest tests.test_command_parity -v` → **1 Test OK**
-- CLI-Paritätsprobe: serieller Lauf und erzwungener Prozesslauf mit `--parallel=processes --parallel-workers=2 --parallel-chunk-size=1 --parallel-threshold=1` erzeugen identische Ausgabe
+- CLI-Paritätsprobe: serieller Lauf und erzwungener Prozesslauf mit `--parallel=processes --parallel-workers=2 --parallel-chunk-size=16 --parallel-threshold=16` erzeugen identische Ausgabe
 
 ## Praktische Lesart
 

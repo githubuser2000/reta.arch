@@ -152,12 +152,25 @@ from .architecture_activation import (
 from .parallel_execution import (
     ParallelExecutionBundle,
     ParallelExecutionConfig,
+    ParallelOperationResult,
     ParallelRowsResult,
+    ProcessorCoreCounts,
+    RETA_AVAILABLE_PROCESSOR_CORES,
+    RETA_PARALLEL_PROCESSOR_CORES,
+    RETA_PHYSICAL_PROCESSOR_CORES,
+    RETA_PROCESSOR_CORES,
+    RETA_VIRTUAL_PROCESSOR_CORES,
     apply_parallel_environment,
     bootstrap_parallel_execution,
+    decode_kombi_rows_in_processes,
+    decode_religion_rows_in_processes,
+    detect_processor_core_counts,
     extract_parallel_config_from_argv,
     is_pypy_runtime,
+    max_cell_text_len_in_processes,
+    prepare_kombi_join_tables_in_processes,
     prepare_rows_in_processes,
+    select_columns_in_processes,
 )
 
 from .architecture_progress import (

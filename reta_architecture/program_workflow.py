@@ -60,15 +60,57 @@ class ProgramWorkflowBundle:
 
         output_kind = self._requested_religion_output_kind(program)
         place = self._csv_path(self.csv_file_names.religion)
-        program.relitable = []
         with open(place, mode="r", encoding="utf-8") as csv_file:
-            for row_index, col in enumerate(csv.reader(csv_file, delimiter=";")):
-                col = [self._decode_religion_cell(cell, output_kind) for cell in col]
-                program.relitable += [col]
-                if row_index == 0:
-                    program.RowsLen = len(col)
-        for _egal in range(len(program.relitable) + 1, program.tables.hoechsteZeile[1024] + 2):
-            program.relitable += [[""] * len(program.relitable[0])]
+            raw_rows = list(enumerate(csv.reader(csv_file, delimiter=";")))
+
+        parallel_result = None
+        if raw_rows:
+            try:
+                from .parallel_execution import decode_religion_rows_in_processes
+
+                parallel_result = decode_religion_rows_in_processes(
+                    raw_rows,
+                    output_kind,
+                    config=getattr(program, "parallel_config", None),
+                )
+            except Exception as exc:  # pragma: no cover - deterministic serial fallback.
+                parallel_result = None
+                try:
+                    program.parallel_csv_decode_result = {
+                        "mode": "serial_fallback",
+                        "operation": "decode_religion_rows",
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                except Exception:
+                    pass
+
+        if parallel_result is not None:
+            program.relitable = list(parallel_result.values)
+            try:
+                program.parallel_csv_decode_result = parallel_result.snapshot()
+            except Exception:
+                pass
+        else:
+            program.relitable = [
+                [self._decode_religion_cell(cell, output_kind) for cell in col]
+                for _row_index, col in raw_rows
+            ]
+            if raw_rows and not hasattr(program, "parallel_csv_decode_result"):
+                try:
+                    program.parallel_csv_decode_result = {
+                        "mode": "serial",
+                        "operation": "decode_religion_rows",
+                        "rows": len(raw_rows),
+                    }
+                except Exception:
+                    pass
+
+        if program.relitable:
+            program.RowsLen = len(program.relitable[0])
+            for _egal in range(len(program.relitable) + 1, program.tables.hoechsteZeile[1024] + 2):
+                program.relitable += [[""] * len(program.relitable[0])]
+        else:
+            program.RowsLen = 0
 
     def _apply_language_specific_motive_column(self, program) -> None:
         language = self.i18n.sprachen[self.i18n.sprachenWahl]
@@ -313,6 +355,7 @@ class ProgramWorkflowBundle:
             ],
             "orchestration_steps": [
                 "load_religion_table",
+                "decode_religion_csv_rows_in_process_chunks_when_enabled",
                 "apply_language_specific_motive_column",
                 "parse_positive_and_negative_parameters",
                 "store_parameter_semantics",

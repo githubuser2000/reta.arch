@@ -61,6 +61,32 @@ class KombiJoin:
         """
 
     def prepareTableJoin(self, ChosenKombiLines, newTable_kombi_1):
+        parallel_result = None
+        try:
+            from .parallel_execution import prepare_kombi_join_tables_in_processes
+
+            parallel_result = prepare_kombi_join_tables_in_processes(
+                ChosenKombiLines,
+                newTable_kombi_1,
+                config=getattr(self.tables, "parallel_config", None),
+            )
+        except Exception as exc:  # pragma: no cover - serial fallback protects CLI parity.
+            parallel_result = None
+            try:
+                self.parallel_last_result = {
+                    "mode": "serial_fallback",
+                    "operation": "prepare_kombi_join_tables",
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            except Exception:
+                pass
+        if parallel_result is not None:
+            try:
+                self.parallel_last_result = parallel_result.snapshot()
+            except Exception:
+                pass
+            return parallel_result.values
+
         KombiTables = []
         for key, value in ChosenKombiLines.items():
             """Zeilennummern der kombi, die hinten dran kommen sollen
@@ -405,9 +431,41 @@ class KombiJoin:
         self.maintable2subtable_Relation: tuple = (OrderedDict(), OrderedDict())
         if len(rowsOfcombi) > 0:
             with open(place, mode="r", encoding="utf-8") as csv_file:
-                self.kombiTable: list = []
-                self.kombiTable_Kombis: list = []
-                for z, col in enumerate(csv.reader(csv_file, delimiter=";")):
+                raw_rows = list(enumerate(csv.reader(csv_file, delimiter=";")))
+
+            self.kombiTable: list = []
+            self.kombiTable_Kombis: list = []
+            parallel_result = None
+            if raw_rows:
+                try:
+                    from .parallel_execution import decode_kombi_rows_in_processes
+
+                    parallel_result = decode_kombi_rows_in_processes(
+                        raw_rows,
+                        config=getattr(self.tables, "parallel_config", None),
+                    )
+                except Exception as exc:  # pragma: no cover - deterministic serial fallback.
+                    parallel_result = None
+                    try:
+                        self.parallel_csv_decode_result = {
+                            "mode": "serial_fallback",
+                            "operation": "decode_kombi_rows",
+                            "error": f"{type(exc).__name__}: {exc}",
+                        }
+                    except Exception:
+                        pass
+
+            if parallel_result is not None:
+                for z, col, kombi_numbers in parallel_result.values:
+                    self.kombiTable += [col]
+                    if len(col) > 0 and z > 0:
+                        self.kombiTable_Kombis += [kombi_numbers]
+                try:
+                    self.parallel_csv_decode_result = parallel_result.snapshot()
+                except Exception:
+                    pass
+            else:
+                for z, col in raw_rows:
                     """jede Zeile in der kombi.csv"""
                     for i, row in enumerate(col):
                         """jede Spalte also dann eigentlich Zelle der kombi.csv"""
@@ -432,133 +490,142 @@ class KombiJoin:
                             self.kombiNumbersCorrectTestAndSet(num)
 
                         self.kombiTable_Kombis += [self.kombiTable_Kombis_Col]
-                self.relitable, animalsProfessionsCol = self.tables.fillBoth(
-                    self.relitable, list(self.kombiTable)
-                )
-                lastlen = 0
-                maxlen = 0
-                for i, (animcol, relicol) in enumerate(
-                    zip(animalsProfessionsCol, self.relitable)
-                ):
-                    """jede Zeile bei der Haupttabellenzeile der Kombitabellenzeile (noch) NICHT richtig entspricht
-                    beide sind auf die gleiche richtig Länge vorher verlängert worden.
-                    (irgendwie komisch von mir programmiert)
+                if raw_rows and not hasattr(self, "parallel_csv_decode_result"):
+                    try:
+                        self.parallel_csv_decode_result = {
+                            "mode": "serial",
+                            "operation": "decode_kombi_rows",
+                            "rows": len(raw_rows),
+                        }
+                    except Exception:
+                        pass
+            self.relitable, animalsProfessionsCol = self.tables.fillBoth(
+                self.relitable, list(self.kombiTable)
+            )
+            lastlen = 0
+            maxlen = 0
+            for i, (animcol, relicol) in enumerate(
+                zip(animalsProfessionsCol, self.relitable)
+            ):
+                """jede Zeile bei der Haupttabellenzeile der Kombitabellenzeile (noch) NICHT richtig entspricht
+                beide sind auf die gleiche richtig Länge vorher verlängert worden.
+                (irgendwie komisch von mir programmiert)
+                """
+                if i == 0:
+                    """Zur richtigen Zeile kommt der Leerraum rein,
+                    der später aufgefüllt wird durch die wirklichen
+                    Inhalte der kombi.csv
                     """
-                    if i == 0:
-                        """Zur richtigen Zeile kommt der Leerraum rein,
-                        der später aufgefüllt wird durch die wirklichen
-                        Inhalte der kombi.csv
+                    lastlen = len(animcol)
+                    if lastlen > maxlen:
+                        maxlen = lastlen
+                    for t, ac in enumerate(animcol[1:]):
+                        """Spalte hinten dran und nächste usw.
+                        entspricht Spalte in Kombitabelle und umgehert
+                        genauso, also Äquivalenz!
                         """
-                        lastlen = len(animcol)
-                        if lastlen > maxlen:
-                            maxlen = lastlen
-                        for t, ac in enumerate(animcol[1:]):
-                            """Spalte hinten dran und nächste usw.
-                            entspricht Spalte in Kombitabelle und umgehert
-                            genauso, also Äquivalenz!
-                            """
-                            self.maintable2subtable_Relation[0][
-                                len(self.relitable[0]) + t
-                            ] = t
-                            self.maintable2subtable_Relation[1][t] = (
-                                len(self.relitable[0]) + t
-                            )
-                        self.relitable[0] += list(animcol[1:]) + [""] * (
-                            maxlen - len(animcol)
+                        self.maintable2subtable_Relation[0][
+                            len(self.relitable[0]) + t
+                        ] = t
+                        self.maintable2subtable_Relation[1][t] = (
+                            len(self.relitable[0]) + t
                         )
-                    else:
-                        """Zur richtigen Zeile kommt der Leerraum rein,
-                        der später aufgefüllt wird durch die wirklichen
-                        Inhalte der kombi.csv
-                        """
-                        self.relitable[i] += len(animcol[1:]) * [""] + [""] * (
-                            maxlen - len(animcol)
-                        )
-                    if i == 0:
-                        for u, heading in enumerate(self.relitable[0]):
-                            for a in rowsOfcombi:
+                    self.relitable[0] += list(animcol[1:]) + [""] * (
+                        maxlen - len(animcol)
+                    )
+                else:
+                    """Zur richtigen Zeile kommt der Leerraum rein,
+                    der später aufgefüllt wird durch die wirklichen
+                    Inhalte der kombi.csv
+                    """
+                    self.relitable[i] += len(animcol[1:]) * [""] + [""] * (
+                        maxlen - len(animcol)
+                    )
+                if i == 0:
+                    for u, heading in enumerate(self.relitable[0]):
+                        for a in rowsOfcombi:
+                            if (
+                                u >= headingsAmount
+                                and u == headingsAmount + a - 1
+                            ):
+                                rowsAsNumbers.add(u)
+                                """ rowsAsNumbers müsste hier verzeigert sein
+                                Es kommen genau diese Spaltennummern hinzu,
+                                (die überzählig sind) die nicht mehr in der
+                                anzuzeigenden tabelle entahlten sind also
+                                zu hoch wären, weil es die dazu kommenden
+                                Spalten der kombi.csv sind.
+                                """
                                 if (
-                                    u >= headingsAmount
-                                    and u == headingsAmount + a - 1
+                                    len(self.tables.generatedSpaltenParameter)
+                                    + self.tables.SpaltenVanillaAmount
+                                    in self.tables.generatedSpaltenParameter
                                 ):
-                                    rowsAsNumbers.add(u)
-                                    """ rowsAsNumbers müsste hier verzeigert sein
-                                    Es kommen genau diese Spaltennummern hinzu,
-                                    (die überzählig sind) die nicht mehr in der
-                                    anzuzeigenden tabelle entahlten sind also
-                                    zu hoch wären, weil es die dazu kommenden
-                                    Spalten der kombi.csv sind.
-                                    """
-                                    if (
-                                        len(self.tables.generatedSpaltenParameter)
-                                        + self.tables.SpaltenVanillaAmount
-                                        in self.tables.generatedSpaltenParameter
-                                    ):
-                                        raise ValueError
+                                    raise ValueError
 
-                                    into: list = []
-                                    into2: list = []
+                                into: list = []
+                                into2: list = []
 
-                                    if csvFileName == i18n.csvFileNames.kombi13:
-                                        for (
-                                            elementParameter
-                                        ) in self.tables.dataDict[3][a]:
-                                            into += [
-                                                (
-                                                    i18n.tableHandling.into[
-                                                        "Kombination_(Galaxie_und_schwarzes_Loch)_(14_mit_13)"
-                                                    ],
-                                                    elementParameter,
-                                                )
-                                            ]
-
-                                            if (
-                                                elementParameter
-                                                == i18n.tableHandling.into["tiere"]
-                                            ):
-                                                into2 = [
-                                                    (
-                                                        i18n.tableHandling.into[
-                                                            "Wichtigstes_zum_gedanklich_einordnen"
-                                                        ],
-                                                        i18n.tableHandling.into[
-                                                            "Zweitwichtigste"
-                                                        ],
-                                                    )
-                                                ]
-                                            elif elementParameter in [
-                                                i18n.tableHandling.into["berufe"],
+                                if csvFileName == i18n.csvFileNames.kombi13:
+                                    for (
+                                        elementParameter
+                                    ) in self.tables.dataDict[3][a]:
+                                        into += [
+                                            (
                                                 i18n.tableHandling.into[
-                                                    "intelligenz"
+                                                    "Kombination_(Galaxie_und_schwarzes_Loch)_(14_mit_13)"
                                                 ],
-                                            ]:
-                                                into2 = [
-                                                    (
-                                                        i18n.tableHandling.into[
-                                                            "Wichtigstes_zum_gedanklich_einordnen"
-                                                        ],
-                                                        i18n.tableHandling.into[
-                                                            "Zweitwichtigste"
-                                                        ],
-                                                    )
-                                                ]
-                                    elif csvFileName == i18n.csvFileNames.kombi15:
-                                        for (
+                                                elementParameter,
+                                            )
+                                        ]
+
+                                        if (
                                             elementParameter
-                                        ) in self.tables.dataDict[8][a]:
-                                            into += [
+                                            == i18n.tableHandling.into["tiere"]
+                                        ):
+                                            into2 = [
                                                 (
                                                     i18n.tableHandling.into[
-                                                        "Kombination_(Universum_und_Galaxie)_(14_mit_15)"
+                                                        "Wichtigstes_zum_gedanklich_einordnen"
                                                     ],
-                                                    elementParameter,
+                                                    i18n.tableHandling.into[
+                                                        "Zweitwichtigste"
+                                                    ],
                                                 )
                                             ]
+                                        elif elementParameter in [
+                                            i18n.tableHandling.into["berufe"],
+                                            i18n.tableHandling.into[
+                                                "intelligenz"
+                                            ],
+                                        ]:
+                                            into2 = [
+                                                (
+                                                    i18n.tableHandling.into[
+                                                        "Wichtigstes_zum_gedanklich_einordnen"
+                                                    ],
+                                                    i18n.tableHandling.into[
+                                                        "Zweitwichtigste"
+                                                    ],
+                                                )
+                                            ]
+                                elif csvFileName == i18n.csvFileNames.kombi15:
+                                    for (
+                                        elementParameter
+                                    ) in self.tables.dataDict[8][a]:
+                                        into += [
+                                            (
+                                                i18n.tableHandling.into[
+                                                    "Kombination_(Universum_und_Galaxie)_(14_mit_15)"
+                                                ],
+                                                elementParameter,
+                                            )
+                                        ]
 
-                                    self.tables.generatedSpaltenParameter[
-                                        len(self.tables.generatedSpaltenParameter)
-                                        + self.tables.SpaltenVanillaAmount
-                                    ] = ((into,) if into2 == [] else (into, into2))
+                                self.tables.generatedSpaltenParameter[
+                                    len(self.tables.generatedSpaltenParameter)
+                                    + self.tables.SpaltenVanillaAmount
+                                ] = ((into,) if into2 == [] else (into, into2))
 
         else:
             self.kombiTable = [[]]

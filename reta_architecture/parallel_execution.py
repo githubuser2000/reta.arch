@@ -11,12 +11,112 @@ and gluing the chunks back in source order.
 import multiprocessing
 import os
 import platform
+import html
+import json
+from collections import OrderedDict
+from copy import deepcopy
 from dataclasses import dataclass, replace
 from typing import Iterable, Sequence
 
 _OFF_VALUES = {"", "0", "off", "false", "no", "none", "serial", "single"}
 _AUTO_VALUES = {"auto", "pypy", "pypy3"}
 _PROCESS_VALUES = {"1", "on", "true", "yes", "process", "processes", "multiprocess", "multiprocessing", "mp"}
+
+
+@dataclass(frozen=True)
+class ProcessorCoreCounts:
+    """Physical/logical processor counts used by Reta process pools.
+
+    ``virtual`` is the logical CPU count visible to the current process.  On
+    Linux this respects CPU affinity when available.  ``physical`` is best
+    effort; if the OS does not expose it cheaply, it falls back to ``virtual``.
+    Reta uses ``default_workers`` for process pools, because PyPy3 multiprocessing
+    benefits from one worker per schedulable logical core for CPU-heavy chunks.
+    """
+
+    physical: int
+    virtual: int
+    available: int
+
+    @property
+    def default_workers(self) -> int:
+        return max(1, self.available or self.virtual or self.physical or 1)
+
+    def snapshot(self) -> dict:
+        return {
+            "physical": self.physical,
+            "virtual": self.virtual,
+            "available": self.available,
+            "default_workers": self.default_workers,
+        }
+
+
+def _available_virtual_cpu_count() -> int:
+    process_cpu_count = getattr(os, "process_cpu_count", None)
+    if callable(process_cpu_count):
+        try:
+            value = process_cpu_count()
+            if value:
+                return max(1, int(value))
+        except Exception:
+            pass
+    sched_getaffinity = getattr(os, "sched_getaffinity", None)
+    if callable(sched_getaffinity):
+        try:
+            return max(1, len(sched_getaffinity(0)))
+        except Exception:
+            pass
+    return max(1, os.cpu_count() or 1)
+
+
+def _linux_physical_cpu_count() -> int | None:
+    cpuinfo = "/proc/cpuinfo"
+    if not os.path.exists(cpuinfo):
+        return None
+    physical_core_pairs: set[tuple[str, str]] = set()
+    physical_id: str | None = None
+    core_id: str | None = None
+    processor_count = 0
+    try:
+        with open(cpuinfo, "r", encoding="utf-8", errors="ignore") as handle:
+            for raw_line in handle:
+                line = raw_line.strip()
+                if not line:
+                    if physical_id is not None and core_id is not None:
+                        physical_core_pairs.add((physical_id, core_id))
+                    physical_id = None
+                    core_id = None
+                    continue
+                if line.startswith("processor") and ":" in line:
+                    processor_count += 1
+                elif line.startswith("physical id") and ":" in line:
+                    physical_id = line.split(":", 1)[1].strip()
+                elif line.startswith("core id") and ":" in line:
+                    core_id = line.split(":", 1)[1].strip()
+        if physical_id is not None and core_id is not None:
+            physical_core_pairs.add((physical_id, core_id))
+    except Exception:
+        return None
+    if physical_core_pairs:
+        return max(1, len(physical_core_pairs))
+    return max(1, processor_count) if processor_count else None
+
+
+def detect_processor_core_counts() -> ProcessorCoreCounts:
+    virtual = max(1, os.cpu_count() or 1)
+    available = _available_virtual_cpu_count()
+    physical = _linux_physical_cpu_count() or virtual
+    physical = max(1, min(int(physical), virtual))
+    available = max(1, min(int(available), virtual))
+    return ProcessorCoreCounts(physical=physical, virtual=virtual, available=available)
+
+
+# Globale Prozessor-Kernzahlen: von allen Parallelisierungsstellen gemeinsam benutzt.
+RETA_PROCESSOR_CORES = detect_processor_core_counts()
+RETA_PHYSICAL_PROCESSOR_CORES = RETA_PROCESSOR_CORES.physical
+RETA_VIRTUAL_PROCESSOR_CORES = RETA_PROCESSOR_CORES.virtual
+RETA_AVAILABLE_PROCESSOR_CORES = RETA_PROCESSOR_CORES.available
+RETA_PARALLEL_PROCESSOR_CORES = RETA_PROCESSOR_CORES.default_workers
 
 
 def _normalise_mode(value: object | None) -> str:
@@ -90,7 +190,7 @@ class ParallelExecutionConfig:
     def resolved_workers(self) -> int:
         if self.workers is not None and self.workers > 0:
             return self.workers
-        return max(1, os.cpu_count() or 1)
+        return RETA_PARALLEL_PROCESSOR_CORES
 
     @property
     def enabled_by_mode(self) -> bool:
@@ -120,6 +220,7 @@ class ParallelExecutionConfig:
             "start_method": self.start_method,
             "runtime": platform.python_implementation(),
             "source": self.source,
+            "processor_cores": RETA_PROCESSOR_CORES.snapshot(),
         }
 
 
@@ -151,14 +252,21 @@ class ParallelExecutionBundle:
     def snapshot(self) -> dict:
         return {
             "class": type(self).__name__,
-            "strategy": "process_chunked_row_preparation",
+            "strategy": "process_chunked_table_work",
             "config": self.config.snapshot(),
+            "processor_cores": RETA_PROCESSOR_CORES.snapshot(),
             "morphisms": [
                 "extract_parallel_config_from_argv",
                 "prepare_rows_in_processes",
+                "decode_religion_rows_in_processes",
+                "decode_kombi_rows_in_processes",
+                "select_columns_in_processes",
+                "max_cell_text_len_in_processes",
+                "prepare_kombi_join_tables_in_processes",
                 "glue_parallel_row_chunks",
             ],
             "default_policy": "auto_on_pypy_off_on_cpython",
+            "default_workers": RETA_PARALLEL_PROCESSOR_CORES,
         }
 
 
@@ -350,6 +458,292 @@ def _parallel_context_from_prepare(
     }
 
 
+
+@dataclass(frozen=True)
+class ParallelOperationResult:
+    operation: str
+    values: object
+    workers: int
+    chunks: int
+    item_count: int
+    config: ParallelExecutionConfig
+
+    def snapshot(self) -> dict:
+        try:
+            value_len = len(self.values)
+        except Exception:
+            value_len = None
+        return {
+            "class": type(self).__name__,
+            "operation": self.operation,
+            "values": value_len,
+            "workers": self.workers,
+            "chunks": self.chunks,
+            "item_count": self.item_count,
+            "config": self.config.snapshot(),
+        }
+
+
+def _pool_map_ordered(worker, payloads: list, config: ParallelExecutionConfig):
+    start_method = _default_start_method(config)
+    ctx = multiprocessing.get_context(start_method) if start_method else multiprocessing.get_context()
+    workers = min(config.resolved_workers, max(1, len(payloads)))
+    with ctx.Pool(processes=workers) as pool:
+        return pool.map(worker, payloads), workers
+
+
+def _decode_religion_cell_static(cell: str, output_kind: str) -> str:
+    if not (cell[:2] == "|{" and cell[-2:] == "}|"):
+        return html.escape(cell, quote=True) if output_kind == "html" else cell
+    payload = json.loads(cell[1:-1])
+    if output_kind == "bbcode":
+        return payload["bbcode"]
+    if output_kind == "html":
+        return payload["html"]
+    return payload[""]
+
+
+def _decode_religion_rows_worker(payload):
+    rows, output_kind = payload
+    return [
+        (row_index, [_decode_religion_cell_static(cell, output_kind) for cell in row])
+        for row_index, row in rows
+    ]
+
+
+def decode_religion_rows_in_processes(
+    rows: Sequence[tuple[int, list]],
+    output_kind: str,
+    *,
+    config: ParallelExecutionConfig | None = None,
+) -> ParallelOperationResult | None:
+    """Decode religion CSV rows in process chunks, or return ``None``."""
+    config = config or ParallelExecutionConfig.from_environment()
+    row_count = len(rows)
+    if not config.should_use_processes(row_count):
+        return None
+    chunks = list(_chunks(list(rows), config.chunk_size))
+    if len(chunks) <= 1:
+        return None
+    payloads = [(chunk, output_kind) for chunk in chunks]
+    chunk_results, workers = _pool_map_ordered(_decode_religion_rows_worker, payloads, config)
+    decoded_pairs: list[tuple[int, list]] = []
+    for chunk in chunk_results:
+        decoded_pairs.extend(chunk)
+    decoded_pairs.sort(key=lambda item: item[0])
+    return ParallelOperationResult(
+        operation="decode_religion_rows",
+        values=[row for _index, row in decoded_pairs],
+        workers=workers,
+        chunks=len(chunks),
+        item_count=row_count,
+        config=config,
+    )
+
+
+def _parse_kombi_number_static(num: str) -> list[int]:
+    num = str(num).strip()
+    if len(num) > 2 and num[0] == "(" and num[-1] == ")":
+        return _parse_kombi_number_static(num[1:-1])
+    if num.isdecimal() or (len(num) > 0 and num[0] in ["+", "-"] and num[1:].isdecimal()):
+        return [abs(int(num))]
+    if len(num) > 2 and "/" in num:
+        left, right = num.split("/", 1)
+        return _parse_kombi_number_static(left) + _parse_kombi_number_static(right)
+    raise ValueError(
+        "Die kombi.csv ist in der ersten Spalte nicht so wie sie sein soll mit den Zahlen. "
+        + str(num)
+        + " "
+        + str(type(num))
+        + " "
+        + str(len(num))
+    )
+
+
+def _decode_kombi_rows_worker(payload):
+    rows = payload
+    result = []
+    for row_index, raw_row in rows:
+        col = list(raw_row)
+        for i, _row in enumerate(col):
+            if i > 0 and col[i].strip() != "" and len(col[0].strip()) != 0:
+                col[i] = "(" + col[0] + ") " + col[i] + " (" + col[0] + ")"
+        kombi_numbers: list[int] = []
+        if len(col) > 0 and row_index > 0:
+            for num in col[0].split("|"):
+                kombi_numbers.extend(_parse_kombi_number_static(num))
+        result.append((row_index, col, kombi_numbers))
+    return result
+
+
+def decode_kombi_rows_in_processes(
+    rows: Sequence[tuple[int, list]],
+    *,
+    config: ParallelExecutionConfig | None = None,
+) -> ParallelOperationResult | None:
+    """Parse/decorate Kombi CSV rows in process chunks, or return ``None``."""
+    config = config or ParallelExecutionConfig.from_environment()
+    row_count = len(rows)
+    if not config.should_use_processes(row_count):
+        return None
+    chunks = list(_chunks(list(rows), config.chunk_size))
+    if len(chunks) <= 1:
+        return None
+    chunk_results, workers = _pool_map_ordered(_decode_kombi_rows_worker, chunks, config)
+    decoded: list[tuple[int, list, list[int]]] = []
+    for chunk in chunk_results:
+        decoded.extend(chunk)
+    decoded.sort(key=lambda item: item[0])
+    return ParallelOperationResult(
+        operation="decode_kombi_rows",
+        values=decoded,
+        workers=workers,
+        chunks=len(chunks),
+        item_count=row_count,
+        config=config,
+    )
+
+
+def _select_columns_worker(payload):
+    rows, columns = payload
+    out = []
+    for row in rows:
+        new_col = []
+        for i in columns:
+            try:
+                new_col.append(deepcopy(row[i - 1]))
+            except IndexError:
+                pass
+        out.append(new_col)
+    return out
+
+
+def select_columns_in_processes(
+    table: Sequence[list],
+    only_that_columns: Sequence[int],
+    *,
+    config: ParallelExecutionConfig | None = None,
+) -> ParallelOperationResult | None:
+    """Project table columns in process chunks, preserving row order."""
+    if len(only_that_columns) == 0:
+        return None
+    config = config or ParallelExecutionConfig.from_environment()
+    row_count = len(table)
+    if not config.should_use_processes(row_count):
+        return None
+    chunks = list(_chunks(list(table), config.chunk_size))
+    if len(chunks) <= 1:
+        return None
+    payloads = [(chunk, tuple(only_that_columns)) for chunk in chunks]
+    chunk_results, workers = _pool_map_ordered(_select_columns_worker, payloads, config)
+    projected: list = []
+    for chunk in chunk_results:
+        projected.extend(chunk)
+    return ParallelOperationResult(
+        operation="select_columns",
+        values=projected,
+        workers=workers,
+        chunks=len(chunks),
+        item_count=row_count,
+        config=config,
+    )
+
+
+def _max_cell_text_len_worker(payload):
+    rows, rows_range = payload
+    local: dict[int, int] = {}
+    for row in rows:
+        for m in rows_range:
+            for i, _cell in enumerate(row):
+                try:
+                    text_len = len(row[i][m])
+                except Exception:
+                    continue
+                previous = local.get(i)
+                if previous is None or text_len > previous:
+                    local[i] = text_len
+    return local
+
+
+def max_cell_text_len_in_processes(
+    new_table: Sequence[list],
+    rows_range: Sequence[int] | range,
+    *,
+    config: ParallelExecutionConfig | None = None,
+) -> ParallelOperationResult | None:
+    """Compute maximum cell text lengths by output column in process chunks."""
+    config = config or ParallelExecutionConfig.from_environment()
+    row_count = len(new_table)
+    if not config.should_use_processes(row_count):
+        return None
+    chunks = list(_chunks(list(new_table), config.chunk_size))
+    if len(chunks) <= 1:
+        return None
+    payloads = [(chunk, tuple(rows_range)) for chunk in chunks]
+    chunk_results, workers = _pool_map_ordered(_max_cell_text_len_worker, payloads, config)
+    merged: dict[int, int] = {}
+    for local in chunk_results:
+        for key, value in local.items():
+            previous = merged.get(key)
+            if previous is None or value > previous:
+                merged[key] = value
+    ordered = OrderedDict((key, merged[key]) for key in sorted(merged))
+    return ParallelOperationResult(
+        operation="max_cell_text_len",
+        values=ordered,
+        workers=workers,
+        chunks=len(chunks),
+        item_count=row_count,
+        config=config,
+    )
+
+
+def _prepare_kombi_join_tables_worker(payload):
+    items, new_table_kombi_1 = payload
+    result = []
+    for key, value in items:
+        rows = []
+        for kombi_line_number in value:
+            try:
+                rows.append(deepcopy(new_table_kombi_1[int(kombi_line_number)]))
+            except (IndexError, TypeError, ValueError):
+                pass
+        if rows:
+            result.append((key, rows))
+    return result
+
+
+def prepare_kombi_join_tables_in_processes(
+    chosen_kombi_lines,
+    new_table_kombi_1: Sequence[list],
+    *,
+    config: ParallelExecutionConfig | None = None,
+) -> ParallelOperationResult | None:
+    """Prepare Kombi sub-table selections in process chunks, preserving key order."""
+    items = [(key, list(value)) for key, value in chosen_kombi_lines.items()]
+    config = config or ParallelExecutionConfig.from_environment()
+    item_count = len(items)
+    if not config.should_use_processes(item_count):
+        return None
+    chunks = list(_chunks(items, config.chunk_size))
+    if len(chunks) <= 1:
+        return None
+    payloads = [(chunk, list(new_table_kombi_1)) for chunk in chunks]
+    chunk_results, workers = _pool_map_ordered(_prepare_kombi_join_tables_worker, payloads, config)
+    values = []
+    for chunk in chunk_results:
+        for key, rows in chunk:
+            values.append(OrderedDict(((key, rows),)))
+    return ParallelOperationResult(
+        operation="prepare_kombi_join_tables",
+        values=values,
+        workers=workers,
+        chunks=len(chunks),
+        item_count=item_count,
+        config=config,
+    )
+
+
 def prepare_rows_in_processes(
     prepare,
     rows: Sequence[tuple[int, list]],
@@ -367,10 +761,10 @@ def prepare_rows_in_processes(
     row_count = len(rows)
     if not config.should_use_processes(row_count):
         return None
-    workers = min(config.resolved_workers, max(1, row_count))
     chunks = list(_chunks(list(rows), config.chunk_size))
     if len(chunks) <= 1:
         return None
+    workers = min(config.resolved_workers, max(1, len(chunks)))
     context = _parallel_context_from_prepare(
         prepare,
         rows_as_numbers=rows_as_numbers,

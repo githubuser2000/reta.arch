@@ -110,6 +110,32 @@ class TableOutput:
 
     def onlyThatColumns(self, table, onlyThatColumns):
         if len(onlyThatColumns) > 0:
+            parallel_result = None
+            try:
+                from .parallel_execution import select_columns_in_processes
+
+                parallel_result = select_columns_in_processes(
+                    table,
+                    list(onlyThatColumns),
+                    config=getattr(self.tables, "parallel_config", None),
+                )
+            except Exception as exc:  # pragma: no cover - serial fallback protects CLI parity.
+                parallel_result = None
+                try:
+                    self.parallel_last_result = {
+                        "mode": "serial_fallback",
+                        "operation": "select_columns",
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                except Exception:
+                    pass
+            if parallel_result is not None:
+                try:
+                    self.parallel_last_result = parallel_result.snapshot()
+                except Exception:
+                    pass
+                return parallel_result.values if len(parallel_result.values) > 0 else table
+
             newTable = []
             for row in table:
                 newCol = []
@@ -210,9 +236,36 @@ class TableOutput:
         ):
             return
 
-        maxCellTextLen = findMaxCellTextLen(
-            finallyDisplayLinesSet, newTable, rowsRange
-        )
+        parallel_width_result = None
+        try:
+            from .parallel_execution import max_cell_text_len_in_processes
+
+            width_source_table = list(newTable)[: len(finallyDisplayLinesSet)]
+            parallel_width_result = max_cell_text_len_in_processes(
+                width_source_table,
+                rowsRange,
+                config=getattr(self.tables, "parallel_config", None),
+            )
+        except Exception as exc:  # pragma: no cover - serial fallback protects CLI parity.
+            parallel_width_result = None
+            try:
+                self.parallel_width_result = {
+                    "mode": "serial_fallback",
+                    "operation": "max_cell_text_len",
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            except Exception:
+                pass
+        if parallel_width_result is not None:
+            maxCellTextLen = parallel_width_result.values
+            try:
+                self.parallel_width_result = parallel_width_result.snapshot()
+            except Exception:
+                pass
+        else:
+            maxCellTextLen = findMaxCellTextLen(
+                finallyDisplayLinesSet, newTable, rowsRange
+            )
         self.finallyDisplayLines: list = list(finallyDisplayLinesSet)
         self.finallyDisplayLines.sort()
         shellRowsAmount -= (
