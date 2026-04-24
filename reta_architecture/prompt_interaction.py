@@ -254,7 +254,7 @@ def bootstrap_prompt_interaction(*, architecture=None, repo_root: Optional[Path]
     completion_runtime = completion_runtime or bootstrap_completion_runtime(repo_root=architecture.repo_root, architecture=architecture, i18n=i18n, force_rebuild=force_rebuild)
     prompt_session = prompt_session or bootstrap_prompt_session(repo_root=architecture.repo_root, architecture=architecture, i18n=i18n, force_rebuild=force_rebuild)
     prompt_preparation = prompt_preparation or bootstrap_prompt_preparation(architecture=architecture, i18n=i18n, prompt_runtime=prompt_runtime, prompt_session=prompt_session, force_rebuild=force_rebuild)
-    prompt_execution = prompt_execution or bootstrap_prompt_execution(architecture=architecture, i18n=i18n, prompt_runtime=prompt_runtime, force_rebuild=force_rebuild)
+    prompt_execution = prompt_execution or bootstrap_prompt_execution(architecture=architecture, i18n=i18n, prompt_runtime=prompt_runtime, completion_runtime=completion_runtime, force_rebuild=force_rebuild)
     return PromptInteractionBundle(
         architecture=architecture,
         i18n=i18n,

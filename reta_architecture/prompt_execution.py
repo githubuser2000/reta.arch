@@ -27,7 +27,7 @@ from .runtime_compat import (
 from multis import mult2
 from multis3 import mult3
 
-from .prompt_language import custom_split2, verifyBruchNganzZahlBetweenCommas
+from .prompt_language import custom_split2, isReTaParameter, verifyBruchNganzZahlBetweenCommas
 from .prompt_session import PromptTextState
 
 i18nRP = i18n.retaPrompt
@@ -36,10 +36,11 @@ TXT = PromptTextState
 gebrochenErlaubteZahlen = set()
 wahl15 = {}
 wahl16 = {}
+befehle = []
 
 
-def configure_prompt_execution(*, prompt_runtime=None, prompt_language=None) -> None:
-    global retaProgram, gebrochenErlaubteZahlen, wahl15, wahl16
+def configure_prompt_execution(*, prompt_runtime=None, prompt_language=None, completion_runtime=None) -> None:
+    global retaProgram, gebrochenErlaubteZahlen, wahl15, wahl16, befehle
     if prompt_runtime is not None:
         retaProgram = prompt_runtime.program
     if prompt_language is not None:
@@ -50,6 +51,8 @@ def configure_prompt_execution(*, prompt_runtime=None, prompt_language=None) -> 
             wahl15[""] = wahl15["15"]
         if "16" in wahl16:
             wahl16[""] = wahl16["16"]
+    if completion_runtime is not None:
+        befehle = list(completion_runtime.befehle)
 
 
 @dataclass(frozen=True)
@@ -78,7 +81,7 @@ class PromptExecutionBundle:
         return self.command_runner(*args, **kwargs)
 
 
-def bootstrap_prompt_execution(*, architecture=None, i18n=None, prompt_runtime=None, prompt_language=None, force_rebuild: bool = False) -> PromptExecutionBundle:
+def bootstrap_prompt_execution(*, architecture=None, i18n=None, prompt_runtime=None, prompt_language=None, completion_runtime=None, force_rebuild: bool = False) -> PromptExecutionBundle:
     if prompt_runtime is None:
         if architecture is not None and hasattr(architecture, "bootstrap_prompt_runtime"):
             prompt_runtime = architecture.bootstrap_prompt_runtime(i18n=i18n, force_rebuild=force_rebuild)
@@ -95,7 +98,15 @@ def bootstrap_prompt_execution(*, architecture=None, i18n=None, prompt_runtime=N
             from .prompt_language import bootstrap_prompt_language
 
             prompt_language = bootstrap_prompt_language(repo_root=Path(__file__).resolve().parent.parent, i18n=i18n, force_rebuild=force_rebuild)
-    configure_prompt_execution(prompt_runtime=prompt_runtime, prompt_language=prompt_language)
+    if completion_runtime is None:
+        if architecture is not None and hasattr(architecture, "bootstrap_completion_runtime"):
+            completion_runtime = architecture.bootstrap_completion_runtime(i18n=i18n, force_rebuild=force_rebuild)
+        else:
+            from pathlib import Path
+            from .completion_runtime import bootstrap_completion_runtime
+
+            completion_runtime = bootstrap_completion_runtime(repo_root=Path(__file__).resolve().parent.parent, i18n=i18n, force_rebuild=force_rebuild)
+    configure_prompt_execution(prompt_runtime=prompt_runtime, prompt_language=prompt_language, completion_runtime=completion_runtime)
     return PromptExecutionBundle(
         command_runner=PromptGrosseAusgabe,
         fraction_manager=bruchBereichsManagementAndWbefehl,
