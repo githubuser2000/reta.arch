@@ -1313,13 +1313,119 @@ def _stage41_natural_transformations() -> tuple[NaturalTransformationSpec, ...]:
         NaturalTransformationSpec("NestedCompletionValidationTransformation", "NestedCompletionPromptFunctor", "NestedCompletionValidationFunctor", {"NestedCompletionCandidateSection":"nested-completion-json", "NestedCompletionMorphismBundle":"architecture-validation-json"}, "Nested Prompt Completion und Nested-Completion-Validierung kommutieren über derselben Completion-Kandidatensektion.", "reta_architecture/completion_nested.py", "Schützt die aktivierte hierarchische Completion-Schicht gegen spätere retaPrompt-/LibRetaPrompt-Entkernungen."),
     )
 
+
+def _stage43_categories() -> tuple[CategorySpec, ...]:
+    return (
+        CategorySpec(
+            name="ExecutionNetworkCategory",
+            description="Kategorie der reinen Ausführungsnetzwerke über den mathematischen Schichten; Tasks, Queues, Worker und deterministisches Resultat-Gluing.",
+            objects=(
+                _obj("ExecutionTask", "reta_architecture.execution_network.ExecutionTask", "lokaler ausführbarer Task über einem bereits definierten Morphismus"),
+                _obj("ExecutionQueue", "reta_architecture.execution_network.FifoTaskQueue", "FIFO/LIFO/Priority Scheduling-Oberfläche"),
+                _obj("ExecutionRunResult", "reta_architecture.execution_network.ExecutionRunResult", "deterministisch reduzierte Task-Ergebnisse"),
+                _obj("ExecutionNetworkBundle", "reta_architecture.execution_network.ExecutionNetworkBundle", "Ausführungsnetzwerk mit Ressourcenlimits"),
+            ),
+            morphisms=(
+                _mor("enqueue_task", "ExecutionTask", "ExecutionQueue", "FifoTaskQueue.push", "Task in Warteschlange einreihen"),
+                _mor("dequeue_task", "ExecutionQueue", "ExecutionTask", "FifoTaskQueue.pop", "Task aus Warteschlange entnehmen"),
+                _mor("dispatch_task", "ExecutionTask", "ExecutionRunResult", "execute_tasks_deterministically", "Task seriell oder prozessbasiert ausführen"),
+                _mor("deterministic_reduce", "ExecutionRunResult", "OrderedResultSection", "deterministic_reduce", "Taskresultate in stabiler Originalreihenfolge kleben"),
+            ),
+            implemented_by=("reta_architecture/execution_network.py",),
+        ),
+        CategorySpec(
+            name="SchedulerCategory",
+            description="Kategorie begrenzter Scheduler-Ressourcen: FIFO, LIFO, PriorityQueue und Semaphoren als reine Runtime-Mechanik.",
+            objects=(
+                _obj("FifoQueue", "reta_architecture.execution_network.FifoTaskQueue", "faire Arbeitswarteschlange"),
+                _obj("LifoStack", "reta_architecture.execution_network.LifoTaskStack", "Stack für Tiefensuche/Nested-Kontexte"),
+                _obj("PriorityQueue", "reta_architecture.execution_network.PriorityTaskQueue", "priorisierte Arbeitswarteschlange"),
+                _obj("ResourceSemaphore", "reta_architecture.execution_network.ResourceSemaphore", "prozessfähige Ressourcenbegrenzung"),
+            ),
+            morphisms=(
+                _mor("push", "ExecutionTask", "SchedulerQueue", "FifoTaskQueue.push / LifoTaskStack.push / PriorityTaskQueue.push", "Task in Scheduler einfügen"),
+                _mor("pop", "SchedulerQueue", "ExecutionTask", "FifoTaskQueue.pop / LifoTaskStack.pop / PriorityTaskQueue.pop", "nächsten Task nach Disziplin entnehmen"),
+                _mor("acquire_resource", "ResourceSemaphore", "ResourceLease", "ResourceSemaphore.acquire", "knappe Ressource reservieren"),
+                _mor("release_resource", "ResourceLease", "ResourceSemaphore", "ResourceSemaphore.release", "knappe Ressource freigeben"),
+            ),
+            implemented_by=("reta_architecture/execution_network.py",),
+        ),
+        CategorySpec(
+            name="ChannelCategory",
+            description="Kategorie von Halfduplex- und Fullduplex-Kanälen für Supervisor/Worker- und Prompt-Kommunikation.",
+            objects=(
+                _obj("HalfDuplexChannel", "reta_architecture.execution_network.HalfDuplexChannel", "Request/Response-Kanal"),
+                _obj("FullDuplexChannel", "reta_architecture.execution_network.FullDuplexChannel", "bidirektionaler Fortschritt-/Cancel-Kanal"),
+                _obj("ChannelMessage", "reta_architecture.execution_network", "serialisierbare Worker-/Prompt-Nachricht"),
+            ),
+            morphisms=(
+                _mor("send_message", "ChannelMessage", "HalfDuplexChannel", "send_request / send_response", "Nachricht senden"),
+                _mor("receive_message", "HalfDuplexChannel", "ChannelMessage", "receive_request / receive_response", "Nachricht empfangen"),
+                _mor("stream_progress", "FullDuplexChannel", "ChannelMessage", "send_b_to_a", "Fortschritt in Gegenrichtung senden"),
+                _mor("cancel_message", "ChannelMessage", "FullDuplexChannel", "send_a_to_b", "Cancel/Abort-Nachricht senden"),
+            ),
+            implemented_by=("reta_architecture/execution_network.py",),
+        ),
+        CategorySpec(
+            name="PersistenceCategory",
+            description="Kategorie der SQLite-Materialisierung, Auditierung und Cache-Snapshots; speichert Instanzen ohne die mathematische Semantik zu definieren.",
+            objects=(
+                _obj("PersistentLocalSection", "reta_architecture.persistence.persist_section", "persistierte lokale Prägarbensektion"),
+                _obj("PersistentSheafSnapshot", "reta_architecture.persistence.persist_sheaf_snapshot", "persistierter Garben-Snapshot"),
+                _obj("PersistentExecutionRun", "reta_architecture.persistence.persist_execution_run", "persistierter Ausführungslauf"),
+                _obj("AuditEvent", "reta_architecture.persistence.record_audit_event", "Auditereignis mit stabiler Payload-Prüfsumme"),
+                _obj("CacheEntry", "reta_architecture.persistence.cache_put", "validierbarer materialisierter Cacheeintrag"),
+            ),
+            morphisms=(
+                _mor("persist_section", "LocalSection", "PersistentLocalSection", "reta_architecture.persistence.persist_section", "lokale Sektion materialisieren"),
+                _mor("load_section", "PersistentLocalSection", "LocalSection", "reta_architecture.persistence.load_section", "lokale Sektion laden"),
+                _mor("persist_sheaf_snapshot", "SheafBundle", "PersistentSheafSnapshot", "reta_architecture.persistence.persist_sheaf_snapshot", "Garbensnapshot materialisieren"),
+                _mor("persist_execution_run", "ExecutionRunResult", "PersistentExecutionRun", "reta_architecture.persistence.persist_execution_run", "Ausführungslauf auditierbar speichern"),
+                _mor("record_audit_event", "ArchitectureValidationBundle", "AuditEvent", "reta_architecture.persistence.record_audit_event", "Validierungs-/Paritätsereignis auditieren"),
+                _mor("cache_put", "GlobalResult", "CacheEntry", "reta_architecture.persistence.cache_put", "gültiges Resultat cachen"),
+                _mor("cache_get", "CacheEntry", "GlobalResult", "reta_architecture.persistence.cache_get", "gültiges Cache-Resultat laden"),
+                _mor("invalidate_cache", "CacheEntry", "CacheEntry", "reta_architecture.persistence.invalidate_cache", "Cacheeintrag ungültig markieren"),
+            ),
+            implemented_by=("reta_architecture/persistence.py",),
+        ),
+    )
+
+
+def _stage43_functors() -> tuple[FunctorSpec, ...]:
+    return (
+        FunctorSpec("TableChunkExecutionFunctor", "TableSectionCategory", "ExecutionNetworkCategory", "covariant", {"Tables":"ExecutionTask", "TableStateSections":"ExecutionRunResult"}, {"prepare_output_table":"dispatch_task", "filter_original_lines":"enqueue_task"}, "reta_architecture/execution_network.py", "Hebt chunkbare Tabellenarbeit in ein reines Ausführungsnetzwerk."),
+        FunctorSpec("ExecutionResultGluingFunctor", "ExecutionNetworkCategory", "TableSectionCategory", "covariant", {"ExecutionRunResult":"TableStateSections", "OrderedResultSection":"Tables"}, {"deterministic_reduce":"prepare_output_table"}, "reta_architecture/execution_network.py", "Klebt parallel/seriell ausgeführte Taskresultate deterministisch zurück in Tabellen-Sektionen."),
+        FunctorSpec("SchedulerResourceFunctor", "SchedulerCategory", "ExecutionNetworkCategory", "covariant", {"FifoQueue":"ExecutionQueue", "LifoStack":"ExecutionQueue", "PriorityQueue":"ExecutionQueue", "ResourceSemaphore":"ExecutionNetworkBundle"}, {"push":"enqueue_task", "pop":"dequeue_task", "acquire_resource":"dispatch_task", "release_resource":"collect_result"}, "reta_architecture/execution_network.py", "Übersetzt Queue-/Stack-/Semaphore-Mechanik in ausführbare Task-Netzwerke."),
+        FunctorSpec("ChannelPromptFunctor", "ChannelCategory", "LocalSectionCategory", "covariant", {"ChannelMessage":"LocalSection", "HalfDuplexChannel":"PromptStatePresheaf", "FullDuplexChannel":"PromptStatePresheaf"}, {"send_message":"update_prompt_state", "receive_message":"restrict"}, "reta_architecture/execution_network.py", "Transportiert Kanalnachrichten als lokale Prompt-/Input-Sektionen."),
+        FunctorSpec("PresheafPersistenceFunctor", "LocalSectionCategory", "PersistenceCategory", "covariant", {"LocalSection":"PersistentLocalSection", "FilesystemPresheaf":"PersistentLocalSection", "PromptStatePresheaf":"PersistentLocalSection"}, {"add_section":"persist_section", "restrict":"load_section", "update_prompt_state":"persist_section"}, "reta_architecture/persistence.py", "Materialisiert lokale Prägarbensektionen in SQLite."),
+        FunctorSpec("SheafPersistenceFunctor", "CanonicalSemanticSheafCategory", "PersistenceCategory", "covariant", {"ParameterSemanticsSheaf":"PersistentSheafSnapshot", "GeneratedColumnsSheaf":"PersistentSheafSnapshot", "TableOutputSheaf":"PersistentSheafSnapshot", "HtmlReferenceSheaf":"PersistentSheafSnapshot"}, {"canonicalize_pair":"persist_sheaf_snapshot", "sync_from_tables":"persist_sheaf_snapshot"}, "reta_architecture/persistence.py", "Materialisiert geklebte Garben-Snapshots in SQLite."),
+        FunctorSpec("TableStatePersistenceFunctor", "TableSectionCategory", "PersistenceCategory", "covariant", {"Tables":"PersistentExecutionRun", "TableStateSections":"PersistentSheafSnapshot"}, {"prepare_output_table":"persist_execution_run", "render_table_output":"persist_sheaf_snapshot"}, "reta_architecture/persistence.py", "Speichert Tabellenzustände und Ausführungsläufe auditierbar."),
+        FunctorSpec("AuditValidationPersistenceFunctor", "ArchitectureValidationCategory", "PersistenceCategory", "covariant", {"ArchitectureValidationBundle":"AuditEvent", "ArchitectureValidationCheckSpec":"AuditEvent"}, {"bootstrap_architecture_validation":"record_audit_event", "render_validation_diagram":"record_audit_event"}, "reta_architecture/persistence.py", "Persistiert Validierungs- und Paritätsereignisse als Auditlog."),
+        FunctorSpec("CacheMaterializationFunctor", "PersistenceCategory", "TableSectionCategory", "covariant", {"CacheEntry":"Tables", "PersistentExecutionRun":"TableStateSections"}, {"cache_get":"prepare_output_table", "invalidate_cache":"filter_original_lines"}, "reta_architecture/persistence.py", "Lädt gültige materialisierte Resultate zurück in Tabellenpfade."),
+        FunctorSpec("PersistenceAuditFunctor", "PersistenceCategory", "ArchitectureValidationCategory", "covariant", {"AuditEvent":"ArchitectureValidationCheckSpec", "PersistentSheafSnapshot":"ArchitectureValidationBundle"}, {"record_audit_event":"validate", "query_audit_events":"render_validation_diagram"}, "reta_architecture/persistence.py", "Reflektiert Persistenzereignisse in die Validierungs-/Audit-Schicht."),
+    )
+
+
+def _stage43_natural_transformations() -> tuple[NaturalTransformationSpec, ...]:
+    return (
+        NaturalTransformationSpec("ParallelExecutionNaturalityTransformation", "TableChunkExecutionFunctor", "ExecutionResultGluingFunctor", {"ChunkTask":"ExecutionTask", "ChunkResult":"OrderedResultSection", "TableStateSections":"Tables"}, "Parallel oder seriell ausgeführte Chunks kleben nach deterministischer Reduktion zur selben Tabellensektion.", "reta_architecture/execution_network.py", "Schützt die Netzwerkmechanik: Ausführungsreihenfolge darf die Ausgabe nicht verändern."),
+        NaturalTransformationSpec("SchedulerExecutionNaturalityTransformation", "SchedulerResourceFunctor", "TableChunkExecutionFunctor", {"FifoQueue":"ExecutionQueue", "ResourceSemaphore":"ExecutionNetworkBundle"}, "Scheduler-Disziplin und Ressourcenbegrenzung verändern nur die Ausführungsreihenfolge, nicht das deterministisch geklebte Resultat.", "reta_architecture/execution_network.py", "Hält Queues, Stacks und Semaphoren aus der Semantik heraus."),
+        NaturalTransformationSpec("ChannelPromptNaturalityTransformation", "ChannelPromptFunctor", "RawCommandPresheafFunctor", {"ChannelMessage":"PromptText", "PromptStatePresheaf":"LocalSection"}, "Kanaltransport eines Prompt-Befehls und direkte Rohkommando-Prägarbe führen zu derselben lokalen Prompt-Sektion.", "reta_architecture/execution_network.py", "Schützt Halfduplex/Fullduplex-Mechanik gegen Semantik-Verschiebung."),
+        NaturalTransformationSpec("PresheafPersistenceRoundTripTransformation", "PresheafPersistenceFunctor", "LocalDataPresheafFunctor", {"LocalSection":"PersistentLocalSection", "FilesystemPresheaf":"PersistentLocalSection"}, "Persistieren und Laden einer lokalen Sektion liefert bei gleicher Prüfsumme dieselbe lokale Prägarbensektion.", "reta_architecture/persistence.py", "Datenbankmaterialisierung ersetzt nicht die Prägarbe, sondern rundet sie auditierbar ab."),
+        NaturalTransformationSpec("SheafPersistenceRoundTripTransformation", "SheafPersistenceFunctor", "GluedSemanticSheafFunctor", {"SheafBundle":"PersistentSheafSnapshot", "ParameterSemanticsSheaf":"PersistentSheafSnapshot"}, "Persistieren und Laden eines Garben-Snapshots liefert bei gleicher Prüfsumme dieselbe geklebte Semantik.", "reta_architecture/persistence.py", "Datenbankmaterialisierung ersetzt nicht die Garbe, sondern speichert Snapshots."),
+        NaturalTransformationSpec("TableStatePersistenceTransformation", "TableStatePersistenceFunctor", "ExplicitTableStateFunctor", {"TableStateSections":"PersistentSheafSnapshot", "Tables":"PersistentExecutionRun"}, "Expliziter Tabellenzustand und persistierter Tabellen-Snapshot kommutieren, solange Kontext- und Payload-Hashes gleich bleiben.", "reta_architecture/persistence.py", "Macht Tabellenläufe auditierbar, ohne Mutable-State-Semantik zu ändern."),
+        NaturalTransformationSpec("CacheCoherenceTransformation", "CacheMaterializationFunctor", "TableGenerationGluingFunctor", {"CacheEntry":"Tables", "ParameterDictionaryDiagram":"PersistentSheafSnapshot"}, "Ein Cache-Hit darf nur denselben Tabellen-Zielpunkt liefern wie erneutes universelles Gluing mit identischen Kontext-/Sektionshashes.", "reta_architecture/persistence.py", "Schützt Execution-Cache gegen falsche Wiederverwendung."),
+        NaturalTransformationSpec("AuditPersistenceValidationTransformation", "AuditValidationPersistenceFunctor", "PersistenceAuditFunctor", {"ArchitectureValidationBundle":"AuditEvent", "ArchitectureValidationCheckSpec":"AuditEvent"}, "Audit-Ereignisse aus Validierung und Persistenzabfragen beschreiben denselben prüfbaren Lauf.", "reta_architecture/persistence.py", "Verbindet Datenbank-Audit und Architekturvalidierung."),
+    )
+
+
 def bootstrap_category_theory() -> CategoryTheoryBundle:
     """Return the Stage-27 categorical architecture metadata."""
 
     return CategoryTheoryBundle(
-        categories=_categories() + _stage32_categories() + _stage33_categories() + _stage34_categories() + _stage35_categories() + _stage36_categories() + _stage37_categories() + _stage38_categories() + _stage39_categories() + _stage40_categories() + _stage41_categories(),
-        functors=_functors() + _stage32_functors() + _stage33_functors() + _stage34_functors() + _stage35_functors() + _stage36_functors() + _stage37_functors() + _stage38_functors() + _stage39_functors() + _stage40_functors() + _stage41_functors(),
-        natural_transformations=_natural_transformations() + _stage32_natural_transformations() + _stage33_natural_transformations() + _stage34_natural_transformations() + _stage35_natural_transformations() + _stage36_natural_transformations() + _stage37_natural_transformations() + _stage38_natural_transformations() + _stage39_natural_transformations() + _stage40_natural_transformations() + _stage41_natural_transformations(),
+        categories=_categories() + _stage32_categories() + _stage33_categories() + _stage34_categories() + _stage35_categories() + _stage36_categories() + _stage37_categories() + _stage38_categories() + _stage39_categories() + _stage40_categories() + _stage41_categories() + _stage43_categories(),
+        functors=_functors() + _stage32_functors() + _stage33_functors() + _stage34_functors() + _stage35_functors() + _stage36_functors() + _stage37_functors() + _stage38_functors() + _stage39_functors() + _stage40_functors() + _stage41_functors() + _stage43_functors(),
+        natural_transformations=_natural_transformations() + _stage32_natural_transformations() + _stage33_natural_transformations() + _stage34_natural_transformations() + _stage35_natural_transformations() + _stage36_natural_transformations() + _stage37_natural_transformations() + _stage38_natural_transformations() + _stage39_natural_transformations() + _stage40_natural_transformations() + _stage41_natural_transformations() + _stage43_natural_transformations(),
         paradigm_terms=_paradigm_terms(),
         plan=_plan(),
     )

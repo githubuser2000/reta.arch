@@ -44,6 +44,8 @@ from .architecture_rehearsal import ArchitectureRehearsalBundle, bootstrap_archi
 from .architecture_activation import ArchitectureActivationBundle, bootstrap_architecture_activation
 from .architecture_progress import ArchitectureProgressBundle, bootstrap_architecture_progress
 from .parallel_execution import ParallelExecutionBundle, bootstrap_parallel_execution
+from .execution_network import ExecutionNetworkBundle, bootstrap_execution_network
+from .persistence import PersistenceBundle, bootstrap_persistence
 
 
 _ARCHITECTURE_BOOTSTRAP_CACHE: dict[Path, "RetaArchitecture"] = {}
@@ -80,6 +82,8 @@ class RetaArchitecture:
     architecture_activation: ArchitectureActivationBundle
     architecture_progress: ArchitectureProgressBundle
     parallel_execution: ParallelExecutionBundle
+    execution_network: ExecutionNetworkBundle
+    persistence: PersistenceBundle
     column_selection: ColumnSelectionBundle
     parameter_runtime: ParameterRuntimeBundle
     program_workflow: ProgramWorkflowBundle
@@ -197,6 +201,8 @@ class RetaArchitecture:
             architecture_activation=architecture_activation,
         )
         parallel_execution = bootstrap_parallel_execution()
+        execution_network = bootstrap_execution_network()
+        persistence = bootstrap_persistence(repo_root=repo_root)
         architecture_validation = bootstrap_architecture_validation(
             repo_root=repo_root,
             category_theory=category_theory,
@@ -267,6 +273,8 @@ class RetaArchitecture:
             architecture_activation=architecture_activation,
             architecture_progress=architecture_progress,
             parallel_execution=parallel_execution,
+            execution_network=execution_network,
+            persistence=persistence,
             column_selection=column_selection,
             parameter_runtime=parameter_runtime,
             program_workflow=program_workflow,
@@ -534,6 +542,16 @@ class RetaArchitecture:
         if not force_rebuild:
             return self.parallel_execution
         return bootstrap_parallel_execution()
+
+    def bootstrap_execution_network(self, force_rebuild: bool = False):
+        if not force_rebuild:
+            return self.execution_network
+        return bootstrap_execution_network()
+
+    def bootstrap_persistence(self, force_rebuild: bool = False, db_path: str | None = None):
+        if not force_rebuild and db_path is None:
+            return self.persistence
+        return bootstrap_persistence(repo_root=self.repo_root, db_path=db_path)
 
     def bootstrap_architecture_validation(self, force_rebuild: bool = False):
         if not force_rebuild:

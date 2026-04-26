@@ -253,6 +253,7 @@ class ParallelExecutionBundle:
         return {
             "class": type(self).__name__,
             "strategy": "process_chunked_table_work",
+            "execution_network": "reta_architecture.execution_network.ExecutionNetworkBundle",
             "config": self.config.snapshot(),
             "processor_cores": RETA_PROCESSOR_CORES.snapshot(),
             "morphisms": [
@@ -485,11 +486,35 @@ class ParallelOperationResult:
 
 
 def _pool_map_ordered(worker, payloads: list, config: ParallelExecutionConfig):
-    start_method = _default_start_method(config)
-    ctx = multiprocessing.get_context(start_method) if start_method else multiprocessing.get_context()
+    """Map chunk payloads through the execution-network layer.
+
+    The mathematical modules stay pure.  This helper converts process-parallel
+    chunk work into importable ExecutionTask objects, runs them through
+    ExecutionNetworkCategory, and deterministically reduces by original chunk
+    index.
+    """
+    from .execution_network import ExecutionNetworkConfig, ExecutionTask, execute_tasks_deterministically
+
     workers = min(config.resolved_workers, max(1, len(payloads)))
-    with ctx.Pool(processes=workers) as pool:
-        return pool.map(worker, payloads), workers
+    callable_path = f"{worker.__module__}:{worker.__name__}"
+    if worker.__module__ == "__main__" or "<locals>" in getattr(worker, "__qualname__", ""):
+        start_method = _default_start_method(config)
+        ctx = multiprocessing.get_context(start_method) if start_method else multiprocessing.get_context()
+        with ctx.Pool(processes=workers) as pool:
+            return pool.map(worker, payloads), workers
+    tasks = [
+        ExecutionTask(index=index, payload=payload, operation=getattr(worker, "__name__", "chunk_worker"), callable_path=callable_path)
+        for index, payload in enumerate(payloads)
+    ]
+    network_config = ExecutionNetworkConfig(
+        max_workers=workers,
+        queue_discipline="fifo",
+        use_processes=True,
+        start_method=_default_start_method(config),
+        preserve_input_order=True,
+    )
+    result = execute_tasks_deterministically(tasks, config=network_config)
+    return result.values, result.workers
 
 
 def _decode_religion_cell_static(cell: str, output_kind: str) -> str:

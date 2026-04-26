@@ -1,363 +1,154 @@
-# Architecture Status – current worked-through checklist
-
-Date: 2026-04-23
-
-This document condenses the distributed Stage/Audit history into one current status.
-It does **not** repeat the old plan verbatim; it reclassifies items into:
-
-- actually still open in code,
-- effectively done but still present as compatibility facades,
-- metadata/documentation lag.
-
-## Current mathematical architecture
-
-The following layers are present and active in the codebase:
-
-- topology: `reta_architecture/topology.py`
-- presheaves: `reta_architecture/presheaves.py`
-- sheaves: `reta_architecture/sheaves.py`
-- morphisms: `reta_architecture/morphisms.py`
-- universal/gluing layer: `reta_architecture/universal.py`, `table_generation.py`, `program_workflow.py`
-- category/functor/natural transformation layer: `reta_architecture/category_theory.py`
-- meta-control: `architecture_map.py`, `architecture_contracts.py`, `architecture_witnesses.py`, `architecture_validation.py`, `architecture_coherence.py`, `architecture_impact.py`, `architecture_migration.py`, `architecture_rehearsal.py`, `architecture_activation.py`
-
-Quantitative snapshot:
-
-- 22 categories
-- 62 functors
-- 29 natural transformations
-- 11 capsules
-- 53 functorial routes
-- 51/51 architecture validation checks passed
-- coherence status: passed
-
-## 1. Legacy owners – worked through
-
-### `libs/center.py` — still a real remaining owner
-
-Status: **open / highest priority**
-
-Why:
-
-- Stage 37 moved row-range logic into `reta_architecture/row_ranges.py`.
-- Stage 38 moved arithmetic helpers into `reta_architecture/arithmetic.py`.
-- Stage 39 moved console/help/utility logic into `reta_architecture/console_io.py`.
-- `center.py` now delegates many functions, but it still acts as a kitchen-sink compatibility owner:
-  - i18n proxy bootstrapping
-  - global debug/output state
-  - enum/export surface
-  - several compatibility wrappers gathered in one place
-
-Verdict:
-
-`center.py` is no longer the algorithmic owner of the extracted domains, but it is still the thickest remaining compatibility surface.
-
-Next move:
-
-- isolate `nPmEnum` and remaining global state into explicit architecture/runtime modules
-- reduce `center.py` to re-exports plus minimal compatibility glue
-- keep public names stable
-
-### `libs/lib4tables_prepare.py` — mostly migrated, but state ownership remains
-
-Status: **partially open / second priority**
-
-Why:
-
-The module already delegates most operational work to:
-
-- `reta_architecture.table_preparation`
-- `reta_architecture.row_filtering`
-- `reta_architecture.table_wrapping`
-
-The remaining ownership is mainly:
-
-- `Prepare.__init__` state shape
-- wrapping/runtime synchronisation globals
-- some legacy property surface
-
-Verdict:
-
-This is no longer a core algorithm owner. It is mainly a stateful façade around architecture-owned table preparation.
-
-Next move:
-
-- move remaining constructor/state conventions into `table_state.py` / `table_preparation.py` / `table_wrapping.py`
-- leave `Prepare` as a minimal adapter class
-
-### `libs/lib4tables_concat.py` — close to finished
-
-Status: **largely done / low-to-medium priority**
-
-Why:
-
-The class methods already delegate almost entirely to:
-
-- `reta_architecture.generated_columns`
-- `reta_architecture.meta_columns`
-- `reta_architecture.concat_csv`
-
-The remaining legacy ownership is mostly:
-
-- `Concat.__init__` state containers
-- broad historical import surface
-
-Verdict:
-
-This file is much closer to a finished façade than the old inventory suggested.
-
-Next move:
-
-- move constructor state shape into an architecture bundle or explicit state object
-- then reduce `Concat` to a thin compatibility adapter
-
-### `reta.py` — effectively already a façade
-
-Status: **mostly done / low priority**
-
-Why:
-
-`Program` delegates to:
-
-- `RetaArchitecture.bootstrap(...)`
-- `parameter_runtime`
-- `program_workflow`
-- architecture renderers and semantics builders
-
-Verdict:
-
-This is already a compatibility/program shell, not the main workflow owner.
-
-Next move:
-
-- optional cleanup only
-- keep legacy `Program` API stable
-
-### `retaPrompt.py` — effectively already a façade
-
-Status: **mostly done / low priority**
-
-Why:
-
-The module is mostly wiring around:
-
-- `PromptInteractionBundle`
-- prompt preparation / execution / session bundles
-- legacy function names forwarded to architecture-owned controller logic
-
-Verdict:
-
-Not a real algorithmic blocker anymore.
-
-Next move:
-
-- optional lazy bootstrap cleanup
-- keep historical launcher/import surface intact
-
-### `libs/LibRetaPrompt.py` — effectively already done
-
-Status: **mostly done / very low priority**
-
-Why:
-
-The file contains import-time bootstrap/re-export wiring for:
-
-- prompt runtime
-- completion runtime
-- prompt language
-- prompt session
-
-Verdict:
-
-This is already an architecture bootstrap façade.
-
-Next move:
-
-- optional lazy-loading cleanup only
-
-### Already thin enough
-
-These items should no longer be treated as major open migration targets:
-
-- `i18n/words.py`
-- `libs/word_completerAlx.py`
-- `libs/nestedAlx.py`
-- `libs/lib4tables.py`
-- `libs/tableHandling.py`
-
-## 2. Migration waves – worked through
-
-The important distinction is between **runtime reality** and **migration metadata**.
-
-Runtime reality:
-
-- Stages 37–41 are real activations, not just plans.
-- Several old owners are already thin compatibility façades.
-
-Migration metadata reality:
-
-- `architecture_migration.py` still reports all waves as `ready_planned`.
-- all steps still report `planned_not_executed`.
-
-So the remaining work here is partly **code**, but also clearly **metadata lag**.
-
-### M1 — Topology / presheaf data wave
-
-Status: **mostly done in code, still open in documentation/data organization**
-
-What is done:
-
-- `i18n/words.py` is already a split compatibility façade
-- topology/presheaf/sheaf layers exist
-
-What remains:
-
-- CSV/doc layer is still distributed rather than centrally described
-- no single current status doc existed before this file
-
-### M2 — Prompt / input morphism wave
-
-Status: **substantially advanced, still partially open**
-
-What is done:
-
-- row ranges activated (Stage 37)
-- arithmetic activated (Stage 38)
-- console/help/utility activated (Stage 39)
-- word completion activated (Stage 40)
-- nested completion activated (Stage 41)
-
-What remains:
-
-- `center.py` is still the thick compatibility hub
-- prompt wiring modules could be made lazier/thinner
-- migration metadata still understates the achieved activation state
-
-### M3 — Workflow / universal gluing wave
-
-Status: **mostly done**
-
-What is done:
-
-- `reta.py` already delegates workflow logic into `program_workflow.py` and related architecture modules
-
-What remains:
-
-- mostly compatibility cleanup / reduction of residual shell code
-
-### M4 — Table core / state wave
-
-Status: **partially open**
-
-What is done:
-
-- many methods in `lib4tables_prepare.py` already delegate to architecture modules
-
-What remains:
-
-- constructor/state ownership and wrapping runtime state still sit in legacy surface
-
-### M5 — Generated relation wave
-
-Status: **largely done**
-
-What is done:
-
-- `lib4tables_concat.py` methods are already architecture-owned in practice
-
-What remains:
-
-- constructor/state container extraction
-- reducing import surface
-
-### M6 — Output / parity wave
-
-Status: **code side mostly done, test-input side blocked**
-
-What is done:
-
-- `libs/lib4tables.py` is already a thin compatibility façade
-- `libs/tableHandling.py` is already a thin compatibility façade
-
-What remains:
-
-- full parity run needs the missing reference archive
-
-## 3. Parity test – worked through
-
-Status: **blocked by missing reference artifact, not by a known code failure**
-
-The parity test expects:
-
-- `/mnt/data/reta.todel.zip`
-
-Current outcome:
-
-- the parity suite is skipped because the archive is absent
-
-Interpretation:
-
-- this is an environment/input gap
-- it is not evidence of a regression in the new architecture by itself
-
-Action required:
-
-- provide the original archive in the expected location for full parity verification
-
-## 4. Documentation – worked through
-
-Status: **this was genuinely missing**
-
-Before this file, the architecture history was spread across:
-
-- Stage change logs
-- architecture stage documents
-- package audits
-- markdown audits
-
-This document is intended to serve as the single current status condensation.
-
-## 5. Stronger runtime invariants – worked through
-
-Status: **optional maturation step, not a current blocker**
-
-This is a good next-phase quality task, but it should come after the remaining legacy-thinning work.
-
-Recommended future additions:
-
-- targeted property tests for naturality-sensitive routes
-- stronger runtime assertions for selected commutative diagrams
-- explicit invariants for key gluing paths and compatibility façades
-
-## Actual priority order after working through the list
-
-1. `libs/center.py`
-2. `libs/lib4tables_prepare.py`
-3. `libs/lib4tables_concat.py`
-4. migration metadata refresh in `architecture_migration.py`
-5. parity archive provisioning (`reta.todel.zip`)
-6. optional lazy-cleanup in `reta.py`, `retaPrompt.py`, `libs/LibRetaPrompt.py`
-7. stronger runtime invariants / property tests
-
-## Bottom line
-
-The old inventory slightly overstated how much is still open.
-
-What is **really** still open in code:
-
-- `center.py`
-- residual state ownership in `lib4tables_prepare.py`
-- residual constructor/state ownership in `lib4tables_concat.py`
-- missing external reference archive for parity
-- stale migration-status metadata
-
-What is **not** really open anymore except as compatibility façades:
-
-- `reta.py`
-- `retaPrompt.py`
-- `libs/LibRetaPrompt.py`
-- `libs/lib4tables.py`
-- `libs/tableHandling.py`
-- `libs/word_completerAlx.py`
-- `libs/nestedAlx.py`
-- `i18n/words.py`
+# Reta Architekturstatus (aktuell)
+Stand: 2026-04-24
+
+## Kurzfazit
+
+Die mathematische Architektur ist implementiert, aktiviert und aktuell ohne
+verbleibende Pflicht-Baustellen im Migrationsplan.
+
+- Kategorien: **26**
+- Funktoren: **72**
+- natürliche Transformationen: **37**
+- Stage-42-Fortschrittsoverlay: **30** beobachtete Surfaces,
+  **34** Step-Progress-Einträge, **7** Wellen, **0** Outstanding-Items
+- Wellenstatus: **M0–M6 alle `implemented_or_retained`**
+- gemischte Owner: **keine mehr**
+- Paketintegrität: **keine fehlenden Pflichtpfade**
+- Parallelisierung: **prozessbasierte Tabellen-/Zeilen-Chunk-Schicht vorhanden**
+
+## Seit der alten Restliste geschlossen
+
+### 1. `libs/lib4tables_Enum.py`
+
+Der frühere Misch-Owner ist geschlossen:
+
+- das eigentliche Tag-/Enum-Schema lebt in `reta_architecture/tag_schema.py`
+- `libs/lib4tables_Enum.py` ist nur noch Legacy-Kompatibilitätsfläche
+- die Fortschrittsschicht klassifiziert die Datei nun als
+  `extracted_to_compatibility_facade`
+
+### 2. Paritätstest ohne externes Referenzarchiv
+
+`tests/test_command_parity.py` ist nicht mehr auf
+`/mnt/data/reta.todel.zip` angewiesen.
+
+Die Suite arbeitet jetzt in dieser Reihenfolge:
+
+1. externes Referenzarchiv verwenden, falls vorhanden
+2. sonst per `git archive` aus einem Baseline-Commit ein temporäres
+   Vergleichsarchiv erzeugen
+3. optionalen Commit über `RETA_PARITY_BASELINE_COMMIT` respektieren
+
+Damit ist der letzte echte Umgebungsblocker aus der alten Restliste im normalen
+Repository-Checkout beseitigt.
+
+## Zusätzlich bereinigt: keine Architektur-Rückimporte mehr in die Legacy-Fassaden
+
+Die neue Architektur importiert ihre Runtime-Helfer jetzt nicht mehr aus
+`libs/center.py`, `libs/lib4tables_prepare.py` oder
+`libs/lib4tables_concat.py`. Stattdessen liegen die letzten Kompatibilitätsnamen
+und Adapter innerhalb des Architekturpakets selbst:
+
+- `reta_architecture/runtime_compat.py` bündelt i18n-, Range-, Arithmetik- und
+  Console-Helfer architekturintern
+- `reta_architecture/table_adapters.py` enthält die dünnen Architektur-Adapter
+  für die früheren Klassen `Prepare` und `Concat`
+- die betroffenen Architekturmodule (`row_filtering.py`, `prompt_execution.py`,
+  `prompt_preparation.py`, `parameter_runtime.py`, `table_output.py`,
+  `generated_columns.py`, `meta_columns.py`, `concat_csv.py`, `combi_join.py`,
+  `table_wrapping.py`, `table_runtime.py`) greifen nur noch auf Architekturcode
+  zu
+
+Praktisch heißt das: Die neue Schicht hängt nicht mehr rückwärts an den alten
+Wrapperdateien. Die Legacy-Dateien bleiben nur noch als optionale äußere
+Kompatibilitätsoberfläche erhalten.
+
+
+## Seit 2026-04-24 ergänzt: prozessbasierte Chunk-Parallelisierung
+
+Für PyPy3 wurde eine optionale Multiprocessing-Schicht ergänzt und danach
+erweitert. Sie parallelisiert weiterhin nicht die riskanten mutierenden
+Spalten-/Tag-Gluing-Stellen, sondern nur deterministische, chunkbare
+Tabellenarbeit:
+
+- Religion-CSV-Zellendekodierung
+- Kombi-CSV-Zellenvorbereitung
+- Datenzeilen-/Zellenvorbereitung nach der Zeilenauswahl
+- Spaltenprojektion nach der Tabellenvorbereitung
+- maximale Zellbreiten-Scans vor der Ausgabe
+- Kombi-Join-Teiltabellenvorbereitung
+
+Neu ist außerdem eine globale Kernzahl-Schicht in
+`reta_architecture/parallel_execution.py`: `RETA_PROCESSOR_CORES` hält physische,
+virtuelle/logische und verfügbare Kernzahlen; `RETA_PARALLEL_PROCESSOR_CORES`
+ist der Default für Worker-Prozesse. `reta.py` und `retaPrompt.py` akzeptieren
+weiterhin u. a. `--parallel=processes`, `--parallel-workers=N`,
+`--parallel-chunk-size=N`, `--parallel-threshold=N` und `--no-parallel`. Im
+Standardmodus ist die Parallelisierung auf PyPy/PyPy3 automatisch ab Threshold
+aktiv; auf CPython bleibt sie ohne explizite Aktivierung aus. Details stehen in
+`PARALLEL_PROCESSING_2026-04-24.md`.
+
+## Seit 2026-04-26 ergänzt: Ausführungsnetzwerk und Persistenz-/Audit-Schicht
+
+Die mathematischen Kernschichten bleiben rein. Queues, Stacks, Semaphoren,
+Halfduplex-/Fullduplex-Kanäle und SQLite-Persistenz wurden als eigene Kapseln
+oberhalb der Semantik ergänzt:
+
+- `reta_architecture/execution_network.py` enthält `ExecutionTask`,
+  `FifoTaskQueue`, `LifoTaskStack`, `PriorityTaskQueue`, `ResourceSemaphore`,
+  `HalfDuplexChannel`, `FullDuplexChannel`, `ExecutionNetworkBundle` und den
+  deterministischen Reducer `execute_tasks_deterministically`.
+- `reta_architecture/persistence.py` enthält eine SQLite-Schicht für lokale
+  Sektionen, Garben-Snapshots, Ausführungsläufe, Audit-Events und Cache-Einträge.
+- Die Kategorie-Theorie-Schicht kennt jetzt zusätzlich
+  `ExecutionNetworkCategory`, `SchedulerCategory`, `ChannelCategory` und
+  `PersistenceCategory`.
+- Die neuen Funktoren und natürlichen Transformationen formulieren die zentrale
+  Bedingung: parallele oder persistierte Pfade dürfen die semantische Ausgabe
+  nicht verändern.
+
+Die bestehende Prozessparallelisierung nutzt die neue Execution-Network-Schicht
+für ihre generischen Chunk-Maps. Die reinen Schichten `topology.py`,
+`presheaves.py`, `sheaves.py`, `morphisms.py`, `universal.py` bleiben frei von
+Queue-/DB-/Semaphore-Mechanik.
+
+## Was jetzt noch bleibt
+
+Nur noch optionale Nacharbeiten, keine Pflichtpunkte des Migrationsplans:
+
+- `libs/center.py` weiter verdünnen
+- `reta.py` weiter verdünnen
+- `libs/lib4tables_prepare.py` weiter verdünnen
+- `libs/lib4tables_concat.py` weiter verdünnen
+- zusätzliche Paritätsfälle ergänzen
+- optional eine versionierte Fixture zusätzlich zur Git-Baseline pflegen, falls
+  Tests einmal in einem exportierten Tree ohne `.git` laufen sollen
+
+Diese Punkte sind Optimierungen, keine strukturellen Architektur-Blocker.
+
+## Validierungslage
+
+Aktuell verifiziert:
+
+- Architektur-Validierung: **51/51 Checks bestanden**
+- Kohärenz: **passed**
+- Rehearsal: **passed**
+- Activation: **passed**
+- Fortschrittsoverlay: **passed**
+- Paketintegrität: **missing_required = []**
+
+Zusätzlich erfolgreich ausgeführt:
+
+- `/usr/bin/python3 -m compileall -q reta.py retaPrompt.py reta_architecture tests`
+- `/usr/bin/python3 -m unittest tests.test_architecture_refactor -v` → **68 Tests OK**
+- `/usr/bin/python3 -m unittest tests.test_command_parity -v` → **1 Test OK**
+- CLI-Paritätsprobe: serieller Lauf und erzwungener Prozesslauf mit `--parallel=processes --parallel-workers=2 --parallel-chunk-size=16 --parallel-threshold=16` erzeugen identische Ausgabe
+
+## Praktische Lesart
+
+Die ursprüngliche Zielmenge — **Topologie, Morphismus, universelle
+Eigenschaft, Prägarbe, Garbe, Kategorie, Funktor, natürliche Transformation** —
+ist im Projekt nicht mehr bloß beschrieben, sondern in den aktiven
+Architekturschichten verankert. Der Projektzustand ist deshalb nicht mehr
+„Umbau läuft“, sondern **„Umbau abgeschlossen; verbleiben nur noch optionale
+Nachverdichtungen“**.

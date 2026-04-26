@@ -6,9 +6,9 @@ Stand: 2026-04-24
 Die mathematische Architektur ist implementiert, aktiviert und aktuell ohne
 verbleibende Pflicht-Baustellen im Migrationsplan.
 
-- Kategorien: **22**
-- Funktoren: **62**
-- natürliche Transformationen: **29**
+- Kategorien: **26**
+- Funktoren: **72**
+- natürliche Transformationen: **37**
 - Stage-42-Fortschrittsoverlay: **30** beobachtete Surfaces,
   **34** Step-Progress-Einträge, **7** Wellen, **0** Outstanding-Items
 - Wellenstatus: **M0–M6 alle `implemented_or_retained`**
@@ -87,6 +87,30 @@ weiterhin u. a. `--parallel=processes`, `--parallel-workers=N`,
 Standardmodus ist die Parallelisierung auf PyPy/PyPy3 automatisch ab Threshold
 aktiv; auf CPython bleibt sie ohne explizite Aktivierung aus. Details stehen in
 `PARALLEL_PROCESSING_2026-04-24.md`.
+
+## Seit 2026-04-26 ergänzt: Ausführungsnetzwerk und Persistenz-/Audit-Schicht
+
+Die mathematischen Kernschichten bleiben rein. Queues, Stacks, Semaphoren,
+Halfduplex-/Fullduplex-Kanäle und SQLite-Persistenz wurden als eigene Kapseln
+oberhalb der Semantik ergänzt:
+
+- `reta_architecture/execution_network.py` enthält `ExecutionTask`,
+  `FifoTaskQueue`, `LifoTaskStack`, `PriorityTaskQueue`, `ResourceSemaphore`,
+  `HalfDuplexChannel`, `FullDuplexChannel`, `ExecutionNetworkBundle` und den
+  deterministischen Reducer `execute_tasks_deterministically`.
+- `reta_architecture/persistence.py` enthält eine SQLite-Schicht für lokale
+  Sektionen, Garben-Snapshots, Ausführungsläufe, Audit-Events und Cache-Einträge.
+- Die Kategorie-Theorie-Schicht kennt jetzt zusätzlich
+  `ExecutionNetworkCategory`, `SchedulerCategory`, `ChannelCategory` und
+  `PersistenceCategory`.
+- Die neuen Funktoren und natürlichen Transformationen formulieren die zentrale
+  Bedingung: parallele oder persistierte Pfade dürfen die semantische Ausgabe
+  nicht verändern.
+
+Die bestehende Prozessparallelisierung nutzt die neue Execution-Network-Schicht
+für ihre generischen Chunk-Maps. Die reinen Schichten `topology.py`,
+`presheaves.py`, `sheaves.py`, `morphisms.py`, `universal.py` bleiben frei von
+Queue-/DB-/Semaphore-Mechanik.
 
 ## Was jetzt noch bleibt
 

@@ -87,7 +87,37 @@ from reta_architecture.row_filtering import RowFilteringBundle  # noqa: E402
 from reta_architecture.output_syntax import OutputSyntaxBundle  # noqa: E402
 from reta_architecture.number_theory import NumberTheoryBundle, primCreativity as arch_prim_creativity, moonNumber as arch_moon_number  # noqa: E402
 from reta_architecture.package_integrity import RepoManifest  # noqa: E402
+from reta_architecture.execution_network import (  # noqa: E402
+    ExecutionNetworkBundle,
+    ExecutionNetworkConfig,
+    ExecutionTask,
+    FifoTaskQueue,
+    FullDuplexChannel,
+    HalfDuplexChannel,
+    LifoTaskStack,
+    PriorityTaskQueue,
+    execute_tasks_deterministically,
+)
+from reta_architecture.persistence import (  # noqa: E402
+    PersistenceBundle,
+    PersistenceConfig,
+    bootstrap_persistence,
+    cache_get,
+    cache_put,
+    invalidate_cache,
+    load_section,
+    load_sheaf_snapshot,
+    persist_execution_run,
+    persist_section,
+    persist_sheaf_snapshot,
+    query_audit_events,
+    record_audit_event,
+)
 from reta_architecture.tag_schema import TagSchemaBundle, bootstrap_tag_schema  # noqa: E402
+
+
+def _architecture_refactor_double_payload(value):
+    return value * 2
 
 
 class ArchitectureRefactorRegressionTest(unittest.TestCase):
@@ -822,6 +852,88 @@ class ArchitectureRefactorRegressionTest(unittest.TestCase):
         self.assertIn("build_split_i18n_proxy", readme_source)
         self.assertNotIn("import i18n.words as i18n", html_source)
         self.assertNotIn("import i18n.words as i18n", readme_source)
+
+
+    def test_execution_network_layer_is_explicit_and_deterministic(self):
+        execution_network = self.architecture.bootstrap_execution_network()
+        snapshot = execution_network.snapshot()
+        self.assertIsInstance(execution_network, ExecutionNetworkBundle)
+        self.assertEqual(snapshot["category"], "ExecutionNetworkCategory")
+        self.assertIn("FifoTaskQueue", snapshot["queues"])
+        self.assertIn("HalfDuplexChannel", snapshot["channels"])
+        self.assertIn("deterministic_reduce", snapshot["morphisms"])
+
+        tasks = [ExecutionTask(2, 2), ExecutionTask(0, 0), ExecutionTask(1, 1)]
+        result = execute_tasks_deterministically(
+            tasks,
+            handler=_architecture_refactor_double_payload,
+            config=ExecutionNetworkConfig(queue_discipline="fifo"),
+        )
+        self.assertEqual(result.values, [0, 2, 4])
+        self.assertEqual(result.mode, "serial")
+
+        fifo = FifoTaskQueue(tasks)
+        self.assertEqual([fifo.pop().index, fifo.pop().index, fifo.pop().index], [2, 0, 1])
+        lifo = LifoTaskStack(tasks)
+        self.assertEqual([lifo.pop().index, lifo.pop().index, lifo.pop().index], [1, 0, 2])
+        priority = PriorityTaskQueue([ExecutionTask(0, "slow", priority=10), ExecutionTask(1, "fast", priority=1)])
+        self.assertEqual(priority.pop().payload, "fast")
+
+        half = HalfDuplexChannel()
+        half.send_request({"cmd": "run"})
+        self.assertEqual(half.receive_request(timeout=0.1), {"cmd": "run"})
+        half.send_response({"ok": True})
+        self.assertEqual(half.receive_response(timeout=0.1), {"ok": True})
+        full = FullDuplexChannel()
+        full.send_a_to_b("cancel")
+        full.send_b_to_a("progress")
+        self.assertEqual(full.receive_a_to_b(timeout=0.1), "cancel")
+        self.assertEqual(full.receive_b_to_a(timeout=0.1), "progress")
+
+    def test_persistence_layer_is_explicit_and_roundtrips_sections(self):
+        persistence = self.architecture.bootstrap_persistence()
+        snapshot = persistence.snapshot()
+        self.assertIsInstance(persistence, PersistenceBundle)
+        self.assertEqual(snapshot["category"], "PersistenceCategory")
+        self.assertIn("local_sections", snapshot["tables"])
+        self.assertIn("persist_section", snapshot["morphisms"])
+
+        file_backed = bootstrap_persistence(config=PersistenceConfig(db_path=":memory:"))
+        with file_backed.connect() as connection:
+            section = persist_section(
+                connection,
+                kind="unit",
+                name="prompt",
+                payload={"text": "a1"},
+                context={"scope": "prompt"},
+            )
+            loaded = load_section(connection, section.digest)
+            self.assertEqual(loaded["payload"], {"text": "a1"})
+
+            sheaf = persist_sheaf_snapshot(
+                connection,
+                sheaf_name="ParameterSemanticsSheaf",
+                payload={"canonical": "Religionen"},
+            )
+            self.assertEqual(load_sheaf_snapshot(connection, sheaf.digest)["payload"], {"canonical": "Religionen"})
+
+            execution = persist_execution_run(
+                connection,
+                operation="chunk-test",
+                task_count=2,
+                payload={"values": [1, 2]},
+            )
+            self.assertEqual(execution.table, "execution_runs")
+
+            audit = record_audit_event(connection, event_type="validation", subject="unit", payload={"status": "passed"})
+            events = query_audit_events(connection, event_type="validation", subject="unit")
+            self.assertEqual(events[0]["payload"], {"status": "passed"})
+            self.assertEqual(events[0]["payload_hash"], audit.digest)
+
+            cache_put(connection, "unit-cache", {"value": 3})
+            self.assertEqual(cache_get(connection, "unit-cache"), {"value": 3})
+            self.assertEqual(invalidate_cache(connection, "unit-cache"), 1)
+            self.assertIsNone(cache_get(connection, "unit-cache"))
 
     def test_package_integrity_manifest_is_explicit(self):
         manifest = RepoManifest.from_tree(REPO_ROOT)

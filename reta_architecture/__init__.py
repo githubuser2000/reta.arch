@@ -173,6 +173,45 @@ from .parallel_execution import (
     select_columns_in_processes,
 )
 
+
+from .execution_network import (
+    EXECUTION_NETWORK_PROCESS_CORES,
+    ExecutionNetworkBundle,
+    ExecutionNetworkConfig,
+    ExecutionRunResult,
+    ExecutionResult,
+    ExecutionTask,
+    FifoTaskQueue,
+    FullDuplexChannel,
+    HalfDuplexChannel,
+    LifoTaskStack,
+    PriorityTaskQueue,
+    ResourceSemaphore,
+    bootstrap_execution_network,
+    deterministic_reduce,
+    execute_tasks_deterministically,
+    order_tasks,
+)
+
+from .persistence import (
+    PersistedRecord,
+    PersistenceBundle,
+    PersistenceConfig,
+    bootstrap_persistence,
+    cache_get,
+    cache_put,
+    initialise_persistence_schema,
+    invalidate_cache,
+    load_section,
+    load_sheaf_snapshot,
+    persist_execution_run,
+    persist_section,
+    persist_sheaf_snapshot,
+    query_audit_events,
+    record_audit_event,
+    stable_digest,
+)
+
 from .architecture_progress import (
     ArchitectureProgressBundle,
     LegacySurfaceProgressSpec,
