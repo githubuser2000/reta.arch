@@ -55,9 +55,35 @@ def set_zaehlungen(
         else:
             isMoon = moonNumber(prepare.zaehlungen[0])[0] != []
 
-        for i in range(int(prepare.zaehlungen[0]) + 1, num + 1):
+        numbers_to_count = list(range(int(prepare.zaehlungen[0]) + 1, num + 1))
+        moon_pairs = None
+        try:
+            from .parallel_execution import moon_numbers_in_processes
+
+            parallel_result = moon_numbers_in_processes(
+                numbers_to_count,
+                config=getattr(prepare, "parallel_config", None),
+            )
+            if parallel_result is not None:
+                moon_pairs = parallel_result.values
+                try:
+                    prepare.parallel_counting_result = parallel_result.snapshot()
+                except Exception:
+                    pass
+        except Exception as exc:  # pragma: no cover - serial fallback protects row parity.
+            try:
+                prepare.parallel_counting_result = {
+                    "mode": "serial_fallback",
+                    "operation": "moon_numbers",
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            except Exception:
+                pass
+        if moon_pairs is None:
+            moon_pairs = [(i, moonNumber(int(i))) for i in numbers_to_count]
+
+        for i, moonType in moon_pairs:
             wasMoon = isMoon
-            moonType = moonNumber(int(i))
             isMoon = moonType[0] != []
             if wasMoon and not isMoon:
                 isMoon = False
@@ -337,8 +363,33 @@ def filter_original_lines(prepare, numRange: set, paramLines: set) -> set:
             innenAussen = {}
             innenAussen[1] = (True, False, True)
             numRangeB = numRange - {1, 2, 3}
-            for n in numRangeB:
-                primList[n] = primFak(n)
+            parallel_prime_result = None
+            try:
+                from .parallel_execution import prime_factors_in_processes
+
+                parallel_prime_result = prime_factors_in_processes(
+                    sorted(numRangeB),
+                    config=getattr(prepare, "parallel_config", None),
+                )
+            except Exception as exc:  # pragma: no cover - serial fallback protects row parity.
+                parallel_prime_result = None
+                try:
+                    prepare.parallel_row_filter_result = {
+                        "mode": "serial_fallback",
+                        "operation": "prime_factors",
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                except Exception:
+                    pass
+            if parallel_prime_result is not None:
+                primList = {number: factors for number, factors in parallel_prime_result.values}
+                try:
+                    prepare.parallel_row_filter_result = parallel_prime_result.snapshot()
+                except Exception:
+                    pass
+            else:
+                for n in numRangeB:
+                    primList[n] = primFak(n)
             for anfangsZahl, primZahlen in primList.items():
                 NurEineZahl = len(primZahlen) == 1
                 einFachVorkommen = NurEineZahl
@@ -414,11 +465,37 @@ def filter_original_lines(prepare, numRange: set, paramLines: set) -> set:
                         numRangeYesZ.add(n)
             elif "SonneMitMondanteil" in condition:
                 ifTypAtAll = True
-                for n in numRange:
-                    booleans = {Faktor == 1 for primZahl, Faktor in primRepeat2(primfaktoren(n))}
-                    # print(list(booleans))
-                    if len({True, False} & booleans) > 1:
-                        numRangeYesZ.add(n)
+                parallel_filter_result = None
+                try:
+                    from .parallel_execution import filter_numbers_in_processes
+
+                    parallel_filter_result = filter_numbers_in_processes(
+                        numRange,
+                        "sonne_mit_mondanteil",
+                        config=getattr(prepare, "parallel_config", None),
+                    )
+                except Exception as exc:  # pragma: no cover - serial fallback protects row parity.
+                    parallel_filter_result = None
+                    try:
+                        prepare.parallel_row_filter_result = {
+                            "mode": "serial_fallback",
+                            "operation": "sonne_mit_mondanteil",
+                            "error": f"{type(exc).__name__}: {exc}",
+                        }
+                    except Exception:
+                        pass
+                if parallel_filter_result is not None:
+                    numRangeYesZ |= set(parallel_filter_result.values)
+                    try:
+                        prepare.parallel_row_filter_result = parallel_filter_result.snapshot()
+                    except Exception:
+                        pass
+                else:
+                    for n in numRange:
+                        booleans = {Faktor == 1 for primZahl, Faktor in primRepeat2(primfaktoren(n))}
+                        # print(list(booleans))
+                        if len({True, False} & booleans) > 1:
+                            numRangeYesZ.add(n)
 
         numRange = cutset(ifTypAtAll, numRange, numRangeYesZ)
 
@@ -440,9 +517,36 @@ def filter_original_lines(prepare, numRange: set, paramLines: set) -> set:
             ):
                 numRange = set(range(1, prepare.hoechsteZeile[1024] + 1))
 
-            for n in numRange:
-                if isPrimMultiple(n, primMultiples):
-                    numRangeYesZ.add(n)
+            parallel_filter_result = None
+            try:
+                from .parallel_execution import filter_numbers_in_processes
+
+                parallel_filter_result = filter_numbers_in_processes(
+                    numRange,
+                    "prime_multiples",
+                    primMultiples,
+                    config=getattr(prepare, "parallel_config", None),
+                )
+            except Exception as exc:  # pragma: no cover - serial fallback protects row parity.
+                parallel_filter_result = None
+                try:
+                    prepare.parallel_row_filter_result = {
+                        "mode": "serial_fallback",
+                        "operation": "prime_multiples",
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                except Exception:
+                    pass
+            if parallel_filter_result is not None:
+                numRangeYesZ |= set(parallel_filter_result.values)
+                try:
+                    prepare.parallel_row_filter_result = parallel_filter_result.snapshot()
+                except Exception:
+                    pass
+            else:
+                for n in numRange:
+                    if isPrimMultiple(n, primMultiples):
+                        numRangeYesZ.add(n)
             numRange = cutset(ifPrimAtAll, numRange, numRangeYesZ)
 
         toPowerIt: list = []
@@ -487,10 +591,37 @@ def filter_original_lines(prepare, numRange: set, paramLines: set) -> set:
 
         if ifMultiplesFromAnyAtAll:
             numRangeYesZ = set()
-            for n in numRange:
-                for divisor in anyMultiples:
-                    if n % divisor == 0:
-                        numRangeYesZ.add(n)
+            parallel_filter_result = None
+            try:
+                from .parallel_execution import filter_numbers_in_processes
+
+                parallel_filter_result = filter_numbers_in_processes(
+                    numRange,
+                    "ordinary_multiples",
+                    anyMultiples,
+                    config=getattr(prepare, "parallel_config", None),
+                )
+            except Exception as exc:  # pragma: no cover - serial fallback protects row parity.
+                parallel_filter_result = None
+                try:
+                    prepare.parallel_row_filter_result = {
+                        "mode": "serial_fallback",
+                        "operation": "ordinary_multiples",
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                except Exception:
+                    pass
+            if parallel_filter_result is not None:
+                numRangeYesZ |= set(parallel_filter_result.values)
+                try:
+                    prepare.parallel_row_filter_result = parallel_filter_result.snapshot()
+                except Exception:
+                    pass
+            else:
+                for n in numRange:
+                    for divisor in anyMultiples:
+                        if n % divisor == 0:
+                            numRangeYesZ.add(n)
             numRange = cutset(ifMultiplesFromAnyAtAll, numRange, numRangeYesZ)
 
         # über 114 die Sonnen weg

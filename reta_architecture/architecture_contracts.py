@@ -919,6 +919,73 @@ def _stage41_laws() -> tuple[RefactorLawSpec, ...]:
     )
 
 
+
+
+def _stage43_diagrams() -> tuple[CommutativeDiagramSpec, ...]:
+    return (
+        _diagram(
+            "ExecutionProcessParallelNaturalitySquare",
+            "execution network process-parallel naturality square",
+            {"A": "Table/row chunk inputs", "B": "Process execution tasks", "C": "Serial reducer result", "D": "Deterministic global result"},
+            (_arrow("A", "B", "TableChunkExecutionFunctor / RowFilterProcessFunctor", "reta_architecture/parallel_execution.py + reta_architecture/execution_network.py", ("functor", "process", "scheduler")), _arrow("B", "D", "ExecutionResultGluingFunctor", "reta_architecture/execution_network.py", ("functor", "universal_property"))),
+            (_arrow("A", "C", "serial row/table/arithmetic path", "reta_architecture/row_filtering.py + reta_architecture/arithmetic.py", ("morphism", "table", "arithmetic")), _arrow("C", "D", "deterministic reducer equality", "reta_architecture/execution_network.py", ("natural_transformation", "validation"))),
+            "process_chunk_execution(input) reduced by original index equals the serial row/table/arithmetic result",
+            ("TableCoreCapsule", "InputPromptCapsule", "CompatibilityCapsule"),
+            ("ExecutionNetworkCategory", "SchedulerCategory", "TableSectionCategory", "ActivatedRowRangeCategory", "ActivatedArithmeticCategory"),
+            ("TableChunkExecutionFunctor", "ExecutionResultGluingFunctor", "SchedulerResourceFunctor", "RowFilterProcessFunctor", "ArithmeticBatchExecutionFunctor", "ArithmeticRowRangeGluingFunctor"),
+            ("ParallelExecutionNaturalityTransformation", "SchedulerExecutionNaturalityTransformation", "RowFilterProcessNaturalityTransformation", "ArithmeticBatchProcessNaturalityTransformation"),
+            ("parallel-execution-json", "execution-network-json", "tests.test_architecture_refactor", "tests.test_command_parity"),
+            "Stage 43 erweitert PyPy3-taugliche Prozessausführung: Zeilenfilter, Arithmetik-Batches und Chunk-Resultate müssen deterministisch zur seriellen Semantik kleben.",
+        ),
+        _diagram(
+            "ChannelPromptExecutionNaturalitySquare",
+            "channel/prompt execution naturality square",
+            {"A": "Prompt command section", "B": "Half/Full duplex channel", "C": "Raw command presheaf section", "D": "Prompt execution result"},
+            (_arrow("A", "B", "ChannelPromptFunctor", "reta_architecture/execution_network.py + reta_architecture/prompt_interaction.py", ("functor", "channel", "prompt")), _arrow("B", "D", "send/receive request-response", "reta_architecture/execution_network.py", ("morphism", "scheduler"))),
+            (_arrow("A", "C", "RawCommandPresheafFunctor", "reta_architecture/presheaves.py + reta_architecture/prompt_language.py", ("functor", "presheaf")), _arrow("C", "D", "prompt execution abstraction", "reta_architecture/prompt_execution.py", ("morphism", "natural_transformation"))),
+            "channelized prompt requests preserve the same raw-command section and executable prompt result",
+            ("InputPromptCapsule", "CompatibilityCapsule"),
+            ("ChannelCategory", "LocalSectionCategory", "OpenRetaContextCategory"),
+            ("ChannelPromptFunctor", "RawCommandPresheafFunctor"),
+            ("ChannelPromptNaturalityTransformation",),
+            ("execution-network-json", "prompt-runtime-json", "tests.test_architecture_refactor"),
+            "Stage 43 hält Halfduplex/Fullduplex-Kommunikation außerhalb der Topologien, aber natürlich zur Prompt-Prägarbe.",
+        ),
+        _diagram(
+            "PersistenceRoundTripNaturalitySquare",
+            "persistence roundtrip naturality square",
+            {"A": "Local/sheaf/table sections", "B": "Persistent sections", "C": "Runtime sections", "D": "Loaded snapshots"},
+            (_arrow("A", "B", "PresheafPersistenceFunctor / SheafPersistenceFunctor / TableStatePersistenceFunctor", "reta_architecture/persistence.py", ("functor", "database", "presheaf", "sheaf")), _arrow("B", "D", "load persisted snapshot", "reta_architecture/persistence.py", ("morphism", "database"))),
+            (_arrow("A", "C", "runtime section construction", "reta_architecture/presheaves.py + reta_architecture/sheaves.py + reta_architecture/table_state.py", ("morphism", "runtime")), _arrow("C", "D", "compare loaded snapshot with runtime digest", "reta_architecture/persistence.py", ("natural_transformation", "validation"))),
+            "load(persist(section)) preserves stable digest and semantic context for local, sheaf and table sections",
+            ("LocalSectionCapsule", "SemanticSheafCapsule", "TableCoreCapsule", "CategoricalMetaCapsule"),
+            ("PersistenceCategory", "LocalSectionCategory", "CanonicalSemanticSheafCategory", "TableSectionCategory", "ArchitectureValidationCategory"),
+            ("PresheafPersistenceFunctor", "SheafPersistenceFunctor", "TableStatePersistenceFunctor", "PersistenceBatchPreparationFunctor", "PackageIntegrityExecutionFunctor", "WitnessToValidationFunctor"),
+            ("PresheafPersistenceRoundTripTransformation", "SheafPersistenceRoundTripTransformation", "TableStatePersistenceTransformation", "PersistenceBatchPreparationNaturalityTransformation", "PackageIntegrityProcessNaturalityTransformation"),
+            ("persistence-json", "package-integrity-json", "architecture-validation-json", "tests.test_architecture_refactor"),
+            "Stage 43 speichert Prägarben-, Garben- und Tabellenzustände als Auditmaterialisierung, ohne die mathematischen Kernschichten zu verunreinigen.",
+        ),
+        _diagram(
+            "CacheAuditPersistenceNaturalitySquare",
+            "cache/audit persistence naturality square",
+            {"A": "Execution or validation event", "B": "Audit persistence", "C": "Cached materialization", "D": "Validation/coherence result"},
+            (_arrow("A", "B", "PersistenceAuditFunctor / ProcessExecutionAuditFunctor", "reta_architecture/persistence.py + reta_architecture/execution_network.py", ("functor", "audit")), _arrow("B", "D", "audit validation", "reta_architecture/architecture_validation.py", ("functor", "validation"))),
+            (_arrow("A", "C", "CacheMaterializationFunctor", "reta_architecture/persistence.py", ("functor", "database", "cache")), _arrow("C", "D", "cache coherence validation", "reta_architecture/persistence.py + tests/test_architecture_refactor.py", ("natural_transformation", "coherence"))),
+            "valid cache and audit materializations preserve the same validation/coherence statement as direct execution",
+            ("WorkflowGluingCapsule", "TableCoreCapsule", "CategoricalMetaCapsule"),
+            ("PersistenceCategory", "ExecutionNetworkCategory", "UniversalConstructionCategory", "TableSectionCategory", "ArchitectureValidationCategory", "ArchitectureCoherenceCategory"),
+            ("CacheMaterializationFunctor", "AuditValidationPersistenceFunctor", "PersistenceAuditFunctor", "ProcessExecutionAuditFunctor", "TableGenerationGluingFunctor"),
+            ("CacheCoherenceTransformation", "AuditPersistenceValidationTransformation", "ProcessExecutionAuditNaturalityTransformation"),
+            ("persistence-json", "execution-network-json", "architecture-validation-json", "tests.test_architecture_refactor"),
+            "Stage 43 macht Cache und Audit zu kontrollierten Materialisierungen: sie beschleunigen oder protokollieren, ersetzen aber nicht die Semantik.",
+        ),
+    )
+
+
+def _stage43_laws() -> tuple[RefactorLawSpec, ...]:
+    return (
+        _law("ExecutionNetworkPersistenceLaw", "execution/persistence naturality", ("TableCoreCapsule", "LocalSectionCapsule", "SemanticSheafCapsule", "CategoricalMetaCapsule"), "Process execution, channel communication, persistence, cache and audit must factor through deterministic reducers and stable digests without mutating topology, presheaves, sheaves, morphisms or universal constructions.", "Queues, Stacks, Semaphoren, Kanäle und SQLite-Persistenz bleiben eigene Runtime-/Audit-Kapseln; mathematische Kernschichten bleiben rein und alle Materialisierungen müssen roundtrip-, cache- und parallelitätskohärent sein.", ("ExecutionProcessParallelNaturalitySquare", "ChannelPromptExecutionNaturalitySquare", "PersistenceRoundTripNaturalitySquare", "CacheAuditPersistenceNaturalitySquare", "ParallelExecutionNaturalityTransformation", "PresheafPersistenceRoundTripTransformation", "CacheCoherenceTransformation"), ("parallel-execution-json", "execution-network-json", "persistence-json", "tests.test_architecture_refactor", "tests.test_command_parity")),
+    )
 _TEXT_DIAGRAM = """\
 ArchitectureContractsBundle
 ├─ Commutative diagrams
@@ -1110,12 +1177,12 @@ def bootstrap_architecture_contracts(category_theory=None, architecture_map=None
         from .architecture_map import bootstrap_architecture_map
 
         architecture_map = bootstrap_architecture_map()
-    diagrams = _diagrams() + _stage32_diagrams() + _stage33_diagrams() + _stage34_diagrams() + _stage35_diagrams() + _stage36_diagrams() + _stage37_diagrams() + _stage38_diagrams() + _stage39_diagrams() + _stage40_diagrams() + _stage41_diagrams()
+    diagrams = _diagrams() + _stage32_diagrams() + _stage33_diagrams() + _stage34_diagrams() + _stage35_diagrams() + _stage36_diagrams() + _stage37_diagrams() + _stage38_diagrams() + _stage39_diagrams() + _stage40_diagrams() + _stage41_diagrams() + _stage43_diagrams()
     contracts = _capsule_contracts()
     return ArchitectureContractsBundle(
         diagrams=diagrams,
         capsule_contracts=contracts,
-        laws=_laws() + _stage32_laws() + _stage33_laws() + _stage34_laws() + _stage35_laws() + _stage36_laws() + _stage37_laws() + _stage38_laws() + _stage39_laws() + _stage40_laws() + _stage41_laws(),
+        laws=_laws() + _stage32_laws() + _stage33_laws() + _stage34_laws() + _stage35_laws() + _stage36_laws() + _stage37_laws() + _stage38_laws() + _stage39_laws() + _stage40_laws() + _stage41_laws() + _stage43_laws(),
         mermaid_diagram=_MERMAID_DIAGRAM,
         text_diagram=_TEXT_DIAGRAM,
         validation=_validation(diagrams, contracts, category_theory=category_theory, architecture_map=architecture_map),

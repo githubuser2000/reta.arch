@@ -16,7 +16,7 @@ import json
 from collections import OrderedDict
 from copy import deepcopy
 from dataclasses import dataclass, replace
-from typing import Iterable, Sequence
+from typing import Iterable, Mapping, Sequence
 
 _OFF_VALUES = {"", "0", "off", "false", "no", "none", "serial", "single"}
 _AUTO_VALUES = {"auto", "pypy", "pypy3"}
@@ -264,6 +264,11 @@ class ParallelExecutionBundle:
                 "select_columns_in_processes",
                 "max_cell_text_len_in_processes",
                 "prepare_kombi_join_tables_in_processes",
+                "moon_numbers_in_processes",
+                "prime_factors_in_processes",
+                "filter_numbers_in_processes",
+                "factor_pairs_in_processes",
+                "normalize_column_buckets_in_processes",
                 "glue_parallel_row_chunks",
             ],
             "default_policy": "auto_on_pypy_off_on_cpython",
@@ -736,6 +741,257 @@ def _prepare_kombi_join_tables_worker(payload):
         if rows:
             result.append((key, rows))
     return result
+
+
+def _moon_numbers_worker(payload):
+    numbers = payload
+    from .number_theory import moonNumber
+
+    return [(int(number), moonNumber(int(number))) for number in numbers]
+
+
+def moon_numbers_in_processes(
+    numbers: Sequence[int],
+    *,
+    config: ParallelExecutionConfig | None = None,
+) -> ParallelOperationResult | None:
+    """Compute ``moonNumber`` for many row numbers in process chunks.
+
+    The sequential state transition in ``set_zaehlungen`` is preserved by
+    returning ordered ``(number, moon_type)`` pairs; the caller still performs the
+    mutable update serially.  Only the expensive per-number moon predicate is
+    parallelised.
+    """
+    config = config or ParallelExecutionConfig.from_environment()
+    ordered_numbers = [int(number) for number in numbers]
+    item_count = len(ordered_numbers)
+    if not config.should_use_processes(item_count):
+        return None
+    chunks = list(_chunks(ordered_numbers, config.chunk_size))
+    if len(chunks) <= 1:
+        return None
+    chunk_results, workers = _pool_map_ordered(_moon_numbers_worker, chunks, config)
+    values: list[tuple[int, object]] = []
+    for chunk in chunk_results:
+        values.extend(chunk)
+    values.sort(key=lambda item: item[0])
+    return ParallelOperationResult(
+        operation="moon_numbers",
+        values=values,
+        workers=workers,
+        chunks=len(chunks),
+        item_count=item_count,
+        config=config,
+    )
+
+
+def _prime_factors_worker(payload):
+    numbers = payload
+    from .number_theory import primFak
+
+    return [(int(number), primFak(int(number))) for number in numbers]
+
+
+def prime_factors_in_processes(
+    numbers: Sequence[int],
+    *,
+    config: ParallelExecutionConfig | None = None,
+) -> ParallelOperationResult | None:
+    """Compute prime factors for many numbers in process chunks."""
+    config = config or ParallelExecutionConfig.from_environment()
+    ordered_numbers = [int(number) for number in numbers]
+    item_count = len(ordered_numbers)
+    if not config.should_use_processes(item_count):
+        return None
+    chunks = list(_chunks(ordered_numbers, config.chunk_size))
+    if len(chunks) <= 1:
+        return None
+    chunk_results, workers = _pool_map_ordered(_prime_factors_worker, chunks, config)
+    values: list[tuple[int, list]] = []
+    for chunk in chunk_results:
+        values.extend(chunk)
+    values.sort(key=lambda item: item[0])
+    return ParallelOperationResult(
+        operation="prime_factors",
+        values=values,
+        workers=workers,
+        chunks=len(chunks),
+        item_count=item_count,
+        config=config,
+    )
+
+
+def _number_filter_worker(payload):
+    numbers, mode, criteria = payload
+    out: set[int] = set()
+    mode = str(mode)
+    if mode == "sonne_mit_mondanteil":
+        from .number_theory import primFak, primRepeat
+
+        for number in numbers:
+            number = int(number)
+            booleans = {amount == 1 for _prime, amount in primRepeat(tuple(primFak(number)))}
+            if len({True, False} & booleans) > 1:
+                out.add(number)
+    elif mode == "prime_multiples":
+        from .number_theory import isPrimMultiple
+
+        multiples = list(criteria or [])
+        for number in numbers:
+            number = int(number)
+            if isPrimMultiple(number, multiples):
+                out.add(number)
+    elif mode == "ordinary_multiples":
+        divisors = [int(value) for value in (criteria or []) if int(value) != 0]
+        for number in numbers:
+            number = int(number)
+            for divisor in divisors:
+                if number % divisor == 0:
+                    out.add(number)
+                    break
+    elif mode == "modulo":
+        divisor, remainder = criteria
+        divisor = int(divisor)
+        remainder = int(remainder)
+        for number in numbers:
+            number = int(number)
+            if divisor and number % divisor == remainder:
+                out.add(number)
+    elif mode == "moon":
+        from .number_theory import moonNumber
+
+        want_moon = bool(criteria)
+        for number in numbers:
+            number = int(number)
+            if (moonNumber(number)[0] != []) == want_moon:
+                out.add(number)
+    return out
+
+
+def filter_numbers_in_processes(
+    numbers: Sequence[int] | set[int],
+    mode: str,
+    criteria=None,
+    *,
+    config: ParallelExecutionConfig | None = None,
+) -> ParallelOperationResult | None:
+    """Filter a finite number set in process chunks for pure row predicates."""
+    config = config or ParallelExecutionConfig.from_environment()
+    ordered_numbers = sorted(int(number) for number in numbers)
+    item_count = len(ordered_numbers)
+    if not config.should_use_processes(item_count):
+        return None
+    chunks = list(_chunks(ordered_numbers, config.chunk_size))
+    if len(chunks) <= 1:
+        return None
+    payloads = [(chunk, mode, criteria) for chunk in chunks]
+    chunk_results, workers = _pool_map_ordered(_number_filter_worker, payloads, config)
+    values: set[int] = set()
+    for chunk in chunk_results:
+        values |= set(chunk)
+    return ParallelOperationResult(
+        operation=f"filter_numbers:{mode}",
+        values=values,
+        workers=workers,
+        chunks=len(chunks),
+        item_count=item_count,
+        config=config,
+    )
+
+
+def _factor_pairs_worker(payload):
+    numbers, include_one = payload
+    from .arithmetic import factor_pairs
+
+    return [(int(number), factor_pairs(int(number), bool(include_one))) for number in numbers]
+
+
+def factor_pairs_in_processes(
+    numbers: Sequence[int] | set[int],
+    *,
+    include_one: bool = True,
+    config: ParallelExecutionConfig | None = None,
+) -> ParallelOperationResult | None:
+    """Compute factor pairs for many numbers in process chunks."""
+    config = config or ParallelExecutionConfig.from_environment()
+    ordered_numbers = sorted(int(number) for number in numbers)
+    item_count = len(ordered_numbers)
+    if not config.should_use_processes(item_count):
+        return None
+    chunks = list(_chunks(ordered_numbers, config.chunk_size))
+    if len(chunks) <= 1:
+        return None
+    payloads = [(chunk, bool(include_one)) for chunk in chunks]
+    chunk_results, workers = _pool_map_ordered(_factor_pairs_worker, payloads, config)
+    values: list[tuple[int, list]] = []
+    for chunk in chunk_results:
+        values.extend(chunk)
+    values.sort(key=lambda item: item[0])
+    return ParallelOperationResult(
+        operation="factor_pairs",
+        values=values,
+        workers=workers,
+        chunks=len(chunks),
+        item_count=item_count,
+        config=config,
+    )
+
+
+def _normalize_column_bucket_worker(payload):
+    bucket_pairs = payload
+    result = []
+    for bucket_type, positive, negative in bucket_pairs:
+        result.append((bucket_type, set(positive) - (set(positive) & set(negative)) - set(negative)))
+    return result
+
+
+def normalize_column_buckets_in_processes(
+    spalten_arten: Mapping[tuple[int, int], set],
+    *,
+    config: ParallelExecutionConfig | None = None,
+) -> ParallelOperationResult | None:
+    """Normalise positive/negative column buckets in process chunks.
+
+    This mirrors ``universal.normalize_column_buckets`` but keeps the final dict
+    assembly serial and ordered.  It is used only when bucket payloads are large
+    enough that process overhead can pay off.
+    """
+    config = config or ParallelExecutionConfig.from_environment()
+    buckets = {key: set(value) for key, value in spalten_arten.items()}
+    max_type = int(len(buckets) / 2)
+    pairs = [
+        (bucket_type, buckets.get((0, bucket_type), set()), buckets.get((1, bucket_type), set()))
+        for bucket_type in range(max_type)
+        if (0, bucket_type) in buckets and (1, bucket_type) in buckets
+    ]
+    item_count = sum(len(pos) + len(neg) for _bucket, pos, neg in pairs)
+    if not config.should_use_processes(item_count):
+        return None
+    # There are usually only a handful of positive/negative bucket pairs, but
+    # each pair can contain a large set.  Use one bucket-pair per chunk once the
+    # total payload crosses the threshold; otherwise a default chunk size of 64
+    # would collapse all pairs back into one serial worker payload.
+    pair_chunk_size = 1 if item_count >= config.threshold and len(pairs) > 1 else max(1, min(config.chunk_size, len(pairs) or 1))
+    chunks = list(_chunks(pairs, pair_chunk_size))
+    if len(chunks) <= 1:
+        return None
+    chunk_results, workers = _pool_map_ordered(_normalize_column_bucket_worker, chunks, config)
+    normalised_positive = {}
+    for chunk in chunk_results:
+        for bucket_type, value in chunk:
+            normalised_positive[bucket_type] = value
+    result = {key: set(value) for key, value in buckets.items()}
+    for bucket_type, value in normalised_positive.items():
+        result[(0, bucket_type)] = value
+        result.pop((1, bucket_type), None)
+    return ParallelOperationResult(
+        operation="normalize_column_buckets",
+        values=result,
+        workers=workers,
+        chunks=len(chunks),
+        item_count=item_count,
+        config=config,
+    )
 
 
 def prepare_kombi_join_tables_in_processes(

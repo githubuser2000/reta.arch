@@ -53,8 +53,19 @@ def normalize_column_buckets(spalten_arten: Mapping[Tuple[int, int], set]) -> Di
     """Normalise positive/negative column buckets.
 
     This is the old `spalten_removeDoublesNthenRemoveOneFromAnother`, made into a
-    named universal construction.
+    named universal construction.  Large bucket payloads may be normalised in
+    process chunks on PyPy3, but the returned mapping is assembled serially here
+    so the universal construction remains deterministic.
     """
+    try:
+        from .parallel_execution import normalize_column_buckets_in_processes
+
+        parallel_result = normalize_column_buckets_in_processes(spalten_arten)
+        if parallel_result is not None:
+            return parallel_result.values
+    except Exception:
+        pass
+
     buckets = {key: set(value) for key, value in spalten_arten.items()}
     max_type = int(len(buckets) / 2)
     for bucket_type in range(max_type):

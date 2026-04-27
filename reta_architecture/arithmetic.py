@@ -157,9 +157,21 @@ def divisor_range(
     row_ranges = row_ranges or bootstrap_row_range_morphisms()
     numbers = row_ranges.range_to_numbers(range_expression, False, 0)
     divisor_values: set[int] = set()
-    for number in numbers:
-        for pair in set(factor_pairs(int(number))):
-            divisor_values |= set(pair)
+    parallel_result = None
+    try:
+        from .parallel_execution import factor_pairs_in_processes
+
+        parallel_result = factor_pairs_in_processes(numbers)
+    except Exception:
+        parallel_result = None
+    if parallel_result is not None:
+        for _number, pairs in parallel_result.values:
+            for pair in set(tuple(item) for item in pairs):
+                divisor_values |= set(pair)
+    else:
+        for number in numbers:
+            for pair in set(factor_pairs(int(number))):
+                divisor_values |= set(pair)
     if divisor_values != {1}:
         divisor_values -= {1}
     string_values = [str(value) for value in divisor_values]

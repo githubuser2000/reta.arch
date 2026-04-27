@@ -171,6 +171,11 @@ from .parallel_execution import (
     prepare_kombi_join_tables_in_processes,
     prepare_rows_in_processes,
     select_columns_in_processes,
+    moon_numbers_in_processes,
+    prime_factors_in_processes,
+    filter_numbers_in_processes,
+    factor_pairs_in_processes,
+    normalize_column_buckets_in_processes,
 )
 
 
@@ -200,13 +205,16 @@ from .persistence import (
     bootstrap_persistence,
     cache_get,
     cache_put,
+    cache_put_many,
     initialise_persistence_schema,
     invalidate_cache,
     load_section,
     load_sheaf_snapshot,
     persist_execution_run,
     persist_section,
+    persist_sections_batch,
     persist_sheaf_snapshot,
+    persist_sheaf_snapshots_batch,
     query_audit_events,
     record_audit_event,
     stable_digest,

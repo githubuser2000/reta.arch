@@ -86,12 +86,15 @@ class PersistenceBundle:
             ],
             "morphisms": [
                 "persist_section",
+                "persist_sections_batch",
                 "load_section",
                 "persist_sheaf_snapshot",
+                "persist_sheaf_snapshots_batch",
                 "persist_execution_run",
                 "record_audit_event",
                 "query_audit_events",
                 "cache_put",
+                "cache_put_many",
                 "cache_get",
                 "invalidate_cache",
             ],
@@ -346,3 +349,137 @@ def invalidate_cache(connection: sqlite3.Connection, cache_key: str | None = Non
         cursor = connection.execute("UPDATE cache_entries SET valid = 0, updated_at = ? WHERE cache_key = ?", (time.time(), cache_key))
     connection.commit()
     return int(cursor.rowcount)
+
+
+def _prepare_cache_entries_worker(payload):
+    entries = payload
+    prepared = []
+    for cache_key, value in entries:
+        prepared.append((str(cache_key), stable_digest(value), _json_dumps(value)))
+    return prepared
+
+
+def _prepare_section_entries_worker(payload):
+    entries = payload
+    prepared = []
+    for kind, name, value_payload, context in entries:
+        context_hash = stable_digest(dict(context)) if context is not None else None
+        section_payload = {"kind": kind, "name": name, "context_hash": context_hash, "payload": value_payload}
+        prepared.append((kind, name, context_hash, _json_dumps(value_payload), stable_digest(section_payload), dict(context) if context is not None else None))
+    return prepared
+
+
+def _prepare_sheaf_snapshot_entries_worker(payload):
+    entries = payload
+    prepared = []
+    for sheaf_name, value_payload, context in entries:
+        context_hash = stable_digest(dict(context)) if context is not None else None
+        snapshot_payload = {"sheaf_name": sheaf_name, "context_hash": context_hash, "payload": value_payload}
+        prepared.append((sheaf_name, context_hash, _json_dumps(value_payload), stable_digest(snapshot_payload), dict(context) if context is not None else None))
+    return prepared
+
+
+def _prepare_persistence_entries_in_processes(entries: Sequence, worker, operation: str):
+    try:
+        from .parallel_execution import ParallelExecutionConfig, _chunks, _pool_map_ordered
+
+        config = ParallelExecutionConfig.from_environment()
+        if not config.should_use_processes(len(entries)):
+            return None
+        chunks = list(_chunks(list(entries), config.chunk_size))
+        if len(chunks) <= 1:
+            return None
+        chunk_results, _workers = _pool_map_ordered(worker, chunks, config)
+        prepared = []
+        for chunk in chunk_results:
+            prepared.extend(chunk)
+        return prepared
+    except Exception:
+        return None
+
+
+def cache_put_many(connection: sqlite3.Connection, entries: Sequence[tuple[str, Any]]) -> list[PersistedRecord]:
+    """Store many cache values, computing JSON/digests in process chunks when useful.
+
+    SQLite writes remain serial in this process.  Only pure payload preparation is
+    parallelised, so database locking and cache semantics stay deterministic.
+    """
+    prepared = _prepare_persistence_entries_in_processes(entries, _prepare_cache_entries_worker, "cache_put_many")
+    if prepared is None:
+        prepared = []
+        for cache_key, value in entries:
+            prepared.append((str(cache_key), stable_digest(value), _json_dumps(value)))
+    now = time.time()
+    records: list[PersistedRecord] = []
+    for cache_key, digest, value_json in prepared:
+        connection.execute(
+            """
+            INSERT INTO cache_entries(cache_key, value_hash, value_json, valid, created_at, updated_at)
+            VALUES (?, ?, ?, 1, ?, ?)
+            ON CONFLICT(cache_key) DO UPDATE SET
+                value_hash = excluded.value_hash,
+                value_json = excluded.value_json,
+                valid = 1,
+                updated_at = excluded.updated_at
+            """,
+            (cache_key, digest, value_json, now, now),
+        )
+        records.append(PersistedRecord("cache_entries", cache_key, digest))
+    connection.commit()
+    return records
+
+
+def persist_sections_batch(
+    connection: sqlite3.Connection,
+    entries: Sequence[tuple[str, str, Any, Mapping[str, Any] | None]],
+) -> list[PersistedRecord]:
+    """Persist many local sections with process-parallel digest preparation."""
+    prepared = _prepare_persistence_entries_in_processes(entries, _prepare_section_entries_worker, "persist_sections_batch")
+    if prepared is None:
+        prepared = _prepare_section_entries_worker(entries)
+    now = time.time()
+    records: list[PersistedRecord] = []
+    for kind, name, context_hash, payload_json, digest, context in prepared:
+        if context is not None:
+            connection.execute(
+                "INSERT OR IGNORE INTO open_contexts(context_hash, context_json, created_at) VALUES (?, ?, ?)",
+                (context_hash, _json_dumps(context), now),
+            )
+        connection.execute(
+            """
+            INSERT OR REPLACE INTO local_sections(section_hash, kind, name, context_hash, payload_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (digest, kind, name, context_hash, payload_json, now),
+        )
+        records.append(PersistedRecord("local_sections", f"{kind}:{name}", digest))
+    connection.commit()
+    return records
+
+
+def persist_sheaf_snapshots_batch(
+    connection: sqlite3.Connection,
+    entries: Sequence[tuple[str, Any, Mapping[str, Any] | None]],
+) -> list[PersistedRecord]:
+    """Persist many sheaf snapshots with process-parallel digest preparation."""
+    prepared = _prepare_persistence_entries_in_processes(entries, _prepare_sheaf_snapshot_entries_worker, "persist_sheaf_snapshots_batch")
+    if prepared is None:
+        prepared = _prepare_sheaf_snapshot_entries_worker(entries)
+    now = time.time()
+    records: list[PersistedRecord] = []
+    for sheaf_name, context_hash, payload_json, digest, context in prepared:
+        if context is not None:
+            connection.execute(
+                "INSERT OR IGNORE INTO open_contexts(context_hash, context_json, created_at) VALUES (?, ?, ?)",
+                (context_hash, _json_dumps(context), now),
+            )
+        connection.execute(
+            """
+            INSERT OR REPLACE INTO sheaf_snapshots(snapshot_hash, sheaf_name, context_hash, payload_json, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (digest, sheaf_name, context_hash, payload_json, now),
+        )
+        records.append(PersistedRecord("sheaf_snapshots", sheaf_name, digest))
+    connection.commit()
+    return records

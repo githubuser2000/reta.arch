@@ -118,6 +118,45 @@ def iter_manifest_files(root: Path) -> Iterable[Path]:
         yield path
 
 
+
+def _manifest_file_entry(root: Path, relative: str) -> tuple[str, int, bytes, int | None]:
+    path = root / relative
+    if not path.exists() and not relative.startswith("."):
+        dotted = root / ("." + relative)
+        if dotted.exists():
+            path = dotted
+    data = path.read_bytes()
+    line_count = None
+    if relative.startswith("csv/") and relative.endswith(".csv"):
+        line_count = len(data.decode("utf-8", errors="replace").splitlines())
+    return relative, len(data), hashlib.sha256(data).digest(), line_count
+
+
+def _manifest_file_worker(payload):
+    root_string, relatives = payload
+    root = Path(root_string)
+    return [_manifest_file_entry(root, str(relative)) for relative in relatives]
+
+
+def _manifest_entries_parallel(root: Path, files: Sequence[str]):
+    try:
+        from .parallel_execution import ParallelExecutionConfig, _chunks, _pool_map_ordered
+
+        config = ParallelExecutionConfig.from_environment()
+        if not config.should_use_processes(len(files)):
+            return None
+        chunks = list(_chunks(list(files), config.chunk_size))
+        if len(chunks) <= 1:
+            return None
+        payloads = [(str(root), chunk) for chunk in chunks]
+        chunk_results, workers = _pool_map_ordered(_manifest_file_worker, payloads, config)
+        entries = []
+        for chunk in chunk_results:
+            entries.extend(chunk)
+        return sorted(entries, key=lambda item: item[0])
+    except Exception:
+        return None
+
 @dataclass(frozen=True)
 class RepoManifest:
     root: str
@@ -135,26 +174,30 @@ class RepoManifest:
         root = Path(root).resolve()
         digest = hashlib.sha256()
         files: list[str] = []
-        total_bytes = 0
         runtime_artifact_count = 0
         for path in _iter_all_regular_files(root):
             relative_path = path.relative_to(root)
             if is_runtime_artifact(relative_path):
                 runtime_artifact_count += 1
                 continue
-            relative = _normalise_path(relative_path)
-            data = path.read_bytes()
-            files.append(relative)
-            total_bytes += len(data)
+            files.append(_normalise_path(relative_path))
+
+        entries = _manifest_entries_parallel(root, files)
+        if entries is None:
+            entries = [_manifest_file_entry(root, relative) for relative in files]
+        entries = sorted(entries, key=lambda item: item[0])
+
+        total_bytes = 0
+        csv_line_counts = {}
+        for relative, byte_count, file_digest, line_count in entries:
+            total_bytes += byte_count
             digest.update(relative.encode("utf-8"))
             digest.update(b"\0")
-            digest.update(hashlib.sha256(data).digest())
+            digest.update(file_digest)
+            if line_count is not None:
+                csv_line_counts[relative] = int(line_count)
+
         file_set = set(files)
-        csv_line_counts = {
-            relative: len((root / relative).read_text(encoding="utf-8", errors="replace").splitlines())
-            for relative in sorted(file_set)
-            if relative.startswith("csv/") and relative.endswith(".csv")
-        }
         suspicious_csvs = tuple(
             relative
             for relative, line_count in csv_line_counts.items()
@@ -166,7 +209,7 @@ class RepoManifest:
             file_count=len(files),
             total_bytes=total_bytes,
             digest=digest.hexdigest(),
-            files=tuple(files),
+            files=tuple(sorted(files)),
             missing_required=missing_required,
             runtime_artifact_count=runtime_artifact_count,
             csv_line_counts=csv_line_counts,
