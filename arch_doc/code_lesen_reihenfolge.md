@@ -5,6 +5,22 @@
 Welche py Dateien sollte ich zum Lesen des gesamten Quellcodes von `reta_arch` als erstes lesen?
 
 ## Antwort
+(Korrektur: Nach allem, was wir bisher über dein Projekt besprochen haben, würde ich die Lesereihenfolge stattdessen so ansetzen
+
+1. topology.py
+2. category_theory.py
+3. morphisms.py
+4. functors.py
+5. natural_transformations.py
+6. universal_properties.py
+7. presheaves.py
+8. sheaves.py
+9. execution_network.py
+10. persistence.py
+11. rendering.py
+12. main.py
+)
+
 
 Wenn das Ziel ist, **die Architektur zu verstehen** und nicht nur den Code Zeile für Zeile zu lesen, würde ich die Dateien **nicht alphabetisch**, sondern nach ihrer konzeptionellen Abhängigkeit lesen.
 
