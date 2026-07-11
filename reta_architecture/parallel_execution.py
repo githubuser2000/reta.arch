@@ -390,7 +390,7 @@ def _prepare_row_chunk_worker(payload):
     from .table_preparation import prepare_row_cells
     from .table_wrapping import Wraptype, refresh_textwrap_runtime, width_for_row, wrap_cell_text
 
-    wrapping_type_name = context.get("wrapping_type_name") or "pyhyphen"
+    wrapping_type_name = context.get("wrapping_type_name") or "nohyphen"
     try:
         wrapping_type = Wraptype[wrapping_type_name]
     except Exception:
